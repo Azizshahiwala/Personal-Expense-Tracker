@@ -15,9 +15,21 @@ This Group expense tracker is used to keep track of how much money you/others sp
 - Settlement interface (pay in full or partial amounts, track payment history)
 - Settlement suggestions (e.g., "Alice pays Bob Rs50")
 - In-group chat for real-time communication
+- Comments/notes on individual expenses
 - Expense history and analytics by category/member
+- Email reminders for pending settlements
+- CSV export for expense data
 - Account-based authentication for secure, multi-user access
 - Mobile and desktop responsive design
+
+**Future Features (Phase 2 & 3):**
+- Receipt scanning with OCR (auto-detect items, amounts)
+- Multi-currency support with real-time conversion
+- Payment method integration (Razorpay/UPI for India)
+- Bank integration (open banking APIs, if legal & feasible)
+- Mobile and desktop web app.
+- Group Savings feature (shared financial goals, contribution tracking)
+- Advanced analytics and budgeting insights
 
 **Tech Stack:**
 - **Frontend:** React, Tailwind CSS, Material-UI, Vite
@@ -25,3 +37,6 @@ This Group expense tracker is used to keep track of how much money you/others sp
 - **Real-time:** WebSocket for chat
 - **Hosting:** Vercel (frontend), Railway/Render (backend)
 - **UI Template:** TailAdmin React (SaaS variant)
+
+**Development Approach:**
+Build a fully functional MVP first (Phase 1). Once stable and tested, incrementally add advanced features (Phase 2 & 3) based on user feedback and market validation.
