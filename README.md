@@ -1,10 +1,10 @@
 # Group-Expense-Tracker
 
 **Intro**
-This personal expense tracker is used to keep track of how much money you/others spend on in group events, which is shared by group members.
+This Group expense tracker is used to keep track of how much money you/others spend on in group events, which is shared by group members.
 
 **What problem does it actually solve ?**
-- When people go and hangout with friends, family or let it be business trip, Sometimes the user needs to keep the track of the expenses when the event has ended. But he/she may forget some purchases and put incorrect items in ledger. This tool keeps a live track of expenses by adding an event. Then it gives you a summary of expenses from its history which can be integrated in GST.
+- When people go and hangout with friends, family or let it be business trip, Sometimes the user needs to keep the track of the expenses when the event has ended. But he/she may forget some purchases and put incorrect items in ledger. This tool keeps a live track of expenses by adding an event. Then it gives you a summary of expenses from its history.
 
 **Features:**
 - Add, update, delete an event.
