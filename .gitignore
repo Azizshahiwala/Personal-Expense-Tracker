@@ -4,7 +4,8 @@ node_modules/
 *.bat
 *.zip
 *.rar
-
+Props-Complete-Guide.md
+Complete-Structure-Guide.md
 # Logs
 logs
 *.log
