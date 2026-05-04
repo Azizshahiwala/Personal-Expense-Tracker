@@ -1,23 +1,34 @@
 export default function SidebarWidget() {
   return (
-    <div
-      className={`
-        mx-auto mb-10 w-full max-w-60 rounded-2xl bg-gray-50 px-4 py-5 text-center dark:bg-white/[0.03]`}
-    >
-      <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">
-        #1 Tailwind CSS Dashboard
+    <>
+      <h3 className="mb-2 font-semibold text-gray-900 dark:text-white justify-center px-1">
+        Follow me on social media
       </h3>
-      <p className="mb-4 text-gray-500 text-theme-sm dark:text-gray-400">
-        Leading Tailwind CSS Admin Template with 400+ UI Component and Pages.
-      </p>
+      <div
+      className={`
+      flex flex-col gap-3`}>
       <a
-        href="https://tailadmin.com/pricing"
-        target="_blank"
-        rel="nofollow"
-        className="flex items-center justify-center p-3 font-medium text-white rounded-lg bg-brand-500 text-theme-sm hover:bg-brand-600"
-      >
-        Purchase Plan
-      </a>
+        href="https://www.linkedin.com/in/aziz-shahiwala-ab5b27288/"
+  target="_blank"
+  rel="nofollow"
+  className="flex items-center justify-center px-1 py-1.5 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+  LinkedIn
+</a>
+<a
+        href="https://github.com/Azizshahiwala"
+  target="_blank"
+  rel="nofollow"
+  className="flex items-center justify-center px-1 py-1.5 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+  Github
+</a>
+<a
+        href="https://instagram.com/azizstyle_arts?igsh=aDF1bmYzbGYxN3li"
+  target="_blank"
+  rel="nofollow"
+  className="flex items-center justify-center px-1 py-1.5 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors duration-200">
+  Instagram
+</a>
     </div>
+    </>
   );
 }
