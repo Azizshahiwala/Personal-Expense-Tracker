@@ -3,23 +3,22 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
-import Videos from "./pages/UiElements/Videos";
-import Images from "./pages/UiElements/Images";
-import Alerts from "./pages/UiElements/Alerts";
-import Badges from "./pages/UiElements/Badges";
-import Avatars from "./pages/UiElements/Avatars";
-import Buttons from "./pages/UiElements/Buttons";
-import LineChart from "./pages/Charts/LineChart";
-import BarChart from "./pages/Charts/BarChart";
 import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
-import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import { AuthProvider } from "./context/AuthContext";
-
+import Dissolve from "./pages/Chatroom/Dissolve";
+import LeaveRoom from "./pages/Chatroom/LeaveRoom";
+import Logout from "./pages/Logout";
+import Room from "./pages/Chatroom/Room";
+import Invite from "./pages/Chatroom/Invite";
+import Members from "./pages/Users/Members";
+import AdminPanel from "./pages/Users/AdminPanel";
+import FinanceHistory from "./pages/Finance/History";
+import ExportReport from "./pages/Finance/ExportReport";
+import ExpensesSettlements from "./pages/Finance/ExpensesSettlements";
 export default function App() {
   return (
     <>
@@ -31,15 +30,32 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
 
+            {/* Users */}
+            <Route path="/users/members" element={<Members />} />
+            <Route path="/users/adminpanel" element={<AdminPanel />} />
+
+            {/* Chatroom */}
+            <Route path="/chatroom/room" element={<Room/>} />
+            <Route path="/chatroom/invite" element={<Invite/>} />
+            <Route path='/chatroom/dissolvegroup' element={<Dissolve />} />
+
+            {/* Finance */}
+            <Route path="/finance/expensesandsettlements" element={<ExpensesSettlements />} />
+            <Route path="/finance/report" element={<ExportReport />} />
+            <Route path="/finance/history" element={<FinanceHistory />} />
+
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/blank" element={<Blank />} />
+            <Route path='/chatroom/leaveroom' element={<LeaveRoom/>}/>
+            
+            
           </Route>
 
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path='/logout' element={<Logout />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

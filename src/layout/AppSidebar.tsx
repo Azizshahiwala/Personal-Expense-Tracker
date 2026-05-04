@@ -41,12 +41,12 @@ const othersItems: NavItem[] = [
   {
     icon: <ArrowRightIcon />,
     name: "Leave Room",
-    path: "/leaveroom"
+    path: "/chatroom/leaveroom"
   },
   {
     icon: <TrashBinIcon />,
     name: "Dissolve Group",
-    path: "/dissolvegroup"
+    path: "/chatroom/dissolvegroup"
   },
   {
     icon: <LockIcon />,
@@ -64,8 +64,8 @@ const navItems: NavItem[] = [
     icon: <ChatIcon />,
     name: "Chatroom",
     subItems: [
-      { name: "Chat", path: "/chat", pro: false },
-      { name: "Invite", path: "/invite", pro: false },
+      { name: "Chat", path: "/chatroom/room", pro: false },
+      { name: "Invite", path: "/chatroom/invite", pro: false },
     ],
   },
   {
@@ -81,8 +81,8 @@ const navItems: NavItem[] = [
     icon: <GroupIcon />,
     name: "Users",
     subItems: [
-      { name: "Members", path: "/Users/members", pro: false },
-      { name: "AdminPanel", path: "/Users/adminpanel", pro: false },
+      { name: "Members", path: "/users/members", pro: false },
+      { name: "AdminPanel", path: "/users/adminpanel", pro: false },
     ],
   },
   {
@@ -146,6 +146,24 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
 
+  const othersItems: NavItem[] = [
+  {
+    icon: <UserCircleIcon />,
+    name: "User Profile",
+    path: "/profile",
+  },
+  {
+    icon: <ArrowRightIcon />,
+    name: "Leave Room",
+    path: "/chatroom/leaveroom"
+  },
+  ...(isAdmin ? [{ icon: <TrashBinIcon />,name: "Dissolve Group", path: "/chatroom/dissolvegroup"}] : []),
+  {
+    icon: <LockIcon />,
+    name: "Logout",
+    path: "/logout"
+  },
+];
   const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
@@ -156,8 +174,8 @@ const AppSidebar: React.FC = () => {
     icon: <ChatIcon />,
     name: "Chatroom",
     subItems: [
-      { name: "Chat", path: "/chat", pro: false },
-      { name: "Invite", path: "/invite", pro: false },
+      { name: "Chat", path: "/chatroom/room", pro: false },
+      { name: "Invite", path: "/chatroom/invite", pro: false },
     ],
   },
   {
@@ -173,8 +191,8 @@ const AppSidebar: React.FC = () => {
     icon: <GroupIcon />,
     name: "Users",
     subItems: [
-      { name: "Members", path: "/Users/members", pro: false },
-      ...(isAdmin? [{ name: "AdminPanel", path: "/Users/adminpanel", pro: false }] : []),
+      { name: "Members", path: "/users/members", pro: false },
+      ...(isAdmin? [{ name: "AdminPanel", path: "/users/adminpanel", pro: false }] : []),
     ],
   },
   {

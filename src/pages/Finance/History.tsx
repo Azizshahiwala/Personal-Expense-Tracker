@@ -1,7 +1,7 @@
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 
-export default function History() {
+export default function FinanceHistory() {
   return (
     <div>
       <PageMeta
