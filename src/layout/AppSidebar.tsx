@@ -160,7 +160,7 @@ const AppSidebar: React.FC = () => {
   ...(isAdmin ? [{ icon: <TrashBinIcon />,name: "Dissolve Group", path: "/chatroom/dissolvegroup"}] : []),
   {
     icon: <LockIcon />,
-    name: "Logout",
+    name: "Sign out",
     path: "/logout"
   },
 ];
