@@ -1,7 +1,44 @@
+import { useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export default function AdminPanel() {
+  const navigate = useNavigate();
+  const { isAdmin, isLoggedIn } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if user data exists in localStorage
+    const data = localStorage.getItem('user');
+    if (!data) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      JSON.parse(data); // Just validate the JSON
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error parsing user data from localStorage:', error);
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Check admin access only after data is loaded
+    if (!isLoading) {
+      if (!isLoggedIn || !isAdmin) {
+        navigate('/');
+        return;
+      }
+    }
+  }, [isLoading, isLoggedIn, isAdmin, navigate]);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
   return (
     <div>
       <PageMeta

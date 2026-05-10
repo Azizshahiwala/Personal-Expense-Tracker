@@ -27,11 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = user?.role === 'admin';
   const isLoggedIn = user !== null;
 
+  //Call this function when you are logging in.
   const login = (userData: User) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
+  //Call this if you want to logout.
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');

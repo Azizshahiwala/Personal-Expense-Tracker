@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth } from '../context/AuthContext';
 // Assume these icons are imported from an icon library
 import {
   ArrowRightIcon,
-  BoxCubeIcon,
   CalenderIcon,
   ChatIcon,
   ChevronDownIcon,
@@ -12,12 +11,7 @@ import {
   GridIcon,
   GroupIcon,
   HorizontaLDots,
-  ListIcon,
   LockIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
   TrashBinIcon,
   UserCircleIcon,
 } from "../icons";
@@ -31,120 +25,22 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-
-const othersItems: NavItem[] = [
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-  {
-    icon: <ArrowRightIcon />,
-    name: "Leave Room",
-    path: "/chatroom/leaveroom"
-  },
-  {
-    icon: <TrashBinIcon />,
-    name: "Dissolve Group",
-    path: "/chatroom/dissolvegroup"
-  },
-  {
-    icon: <LockIcon />,
-    name: "Logout",
-    path: "/logout"
-  },
-];
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    path: "/",
-  },
-  {
-    icon: <ChatIcon />,
-    name: "Chatroom",
-    subItems: [
-      { name: "Chat", path: "/chatroom/room", pro: false },
-      { name: "Invite", path: "/chatroom/invite", pro: false },
-    ],
-  },
-  {
-    icon: <DollarLineIcon />,
-    name: "Finance",
-    subItems: [
-      { name: "Expenses and Settlements", path: "/finance/expensesandsettlements", pro: false },
-      { name: "Export Report", path: "/finance/report", pro: false },
-      { name: "History", path: "/finance/history", pro: false },
-    ],
-  },
-  {
-    icon: <GroupIcon />,
-    name: "Users",
-    subItems: [
-      { name: "Members", path: "/users/members", pro: false },
-      { name: "AdminPanel", path: "/users/adminpanel", pro: false },
-    ],
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-];
-// const othersItems: NavItem[] = [
-//   {
-//     icon: <PieChartIcon />,
-//     name: "Charts",
-//     subItems: [
-//       { name: "Line Chart", path: "/line-chart", pro: false },
-//       { name: "Bar Chart", path: "/bar-chart", pro: false },
-//     ],
-//   },
-//   {
-//     icon: <BoxCubeIcon />,
-//     name: "UI Elements",
-//     subItems: [
-//       { name: "Alerts", path: "/alerts", pro: false },
-//       { name: "Avatar", path: "/avatars", pro: false },
-//       { name: "Badge", path: "/badge", pro: false },
-//       { name: "Buttons", path: "/buttons", pro: false },
-//       { name: "Images", path: "/images", pro: false },
-//       { name: "Videos", path: "/videos", pro: false },
-//     ],
-//   },
-//   {
-//     icon: <PlugInIcon />,
-//     name: "Authentication",
-//     subItems: [
-//       { name: "Sign In", path: "/signin", pro: false },
-//       { name: "Sign Up", path: "/signup", pro: false },
-//     ],
-//   },
-// {
-//     name: "Forms",
-//     icon: <ListIcon />,
-//     subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-//   },
-//   {
-//     name: "Tables",
-//     icon: <TableIcon />,
-//     subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-//   },
-//   {
-//     name: "Pages",
-//     icon: <PageIcon />,
-//     subItems: [
-//       { name: "Blank Page", path: "/blank", pro: false },
-//       { name: "404 Error", path: "/error-404", pro: false },
-//     ],
-//   },
-// ];
-
 const AppSidebar: React.FC = () => {
   
-  const { user, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Check if user has joined a room
+  const hasRoom = useCallback(() => {
+    try {
+      const roomData = localStorage.getItem('currentRoom');
+      return roomData !== null && roomData !== undefined;
+    } catch (error) {
+      return false;
+    }
+  }, []);
 
   const othersItems: NavItem[] = [
   {
@@ -254,6 +150,12 @@ const AppSidebar: React.FC = () => {
   }, [openSubmenu]);
 
   const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
+    // Check if user has a room before allowing main menu navigation
+    if (menuType === "main" && !hasRoom()) {
+      navigate('/chatroom/room-selection');
+      return;
+    }
+    
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
@@ -309,7 +211,7 @@ const AppSidebar: React.FC = () => {
           ) : (
             nav.path && (
               <Link
-                to={nav.path}
+                to={menuType === "main" && !hasRoom() ? '/chatroom/room-selection' : nav.path}
                 className={`menu-item group ${
                   isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                 }`}

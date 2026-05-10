@@ -14,7 +14,7 @@ export default function ProtectedRoute({ children , requiredRole}: ProtectedRout
 const {isLoggedIn, isAdmin} = useAuth();
 
 if (!isLoggedIn) {
-  return <Navigate to="/login" replace />;
+  return <Navigate to="/signin" replace />;
 }
 if (requiredRole === 'admin' && !isAdmin){
     return <Navigate to='/unauthorized' replace />;

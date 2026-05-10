@@ -1,22 +1,102 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
-
+import { useAuth } from "../../context/AuthContext";
+import Credits from "./Credits";
 export default function SignUpForm() {
+  const [showCredits, setShowCredits] = useState(false);
+  const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [validEmail, setValidEmail] = useState(true);
+  const [validPassword, setValidPassword] = useState(true);
+  const [validFname, setValidFname] = useState(true);
+  const [validLname, setValidLname] = useState(true);
+  const { login } = useAuth();
+  const HandleSubmit = async (e: React.FormEvent, email: string, password: string, firstName: string, lastName: string) => {
+e.preventDefault();
+  try{
+    const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const PWD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    const FNAME_REGEX = /^[a-zA-Z]+$/;
+    const LNAME_REGEX = /^[a-zA-Z]+$/;
+
+    setValidEmail(true);
+    setValidPassword(true);
+    setValidFname(true);
+    setValidLname(true);
+
+    if(!EMAIL_REGEX.test(email.trim())){
+      console.log("Email sent is: ",email);
+      setValidEmail(false);
+      return;
+    }
+    if(!PWD_REGEX.test(password.trim())){
+      console.log("Password sent is: ",password);
+      setValidPassword(false);
+      return;
+    }
+    if(!FNAME_REGEX.test(firstName)){
+      setValidFname(false);
+      return;
+    }
+    if(!LNAME_REGEX.test(lastName)){
+      setValidLname(false);
+      return;
+    }
+    //Now this const will be used to send the data in credentials table.
+    //User has not yet logged. so do not use bearer.
+    console.log("VITE_ROUTE_API_KEY: ", VITE_ROUTE_API_KEY);
+    const response = await fetch(`${VITE_ROUTE_API_KEY}/auth/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email: email, password: password, first_name: firstName, last_name: lastName })
+    });
+    const data = await response.json().catch(() => null);
+    if (response.ok) {
+      const name = firstName+" "+lastName;
+
+      //First time register, set as member.
+      login({id: data.unique_user_id,
+        name: name,
+        email: email,
+        role: 'member'});
+
+        //After login, store token.
+        localStorage.setItem('access_token', data.access_token);
+      navigate("/chatroom/room-selection");
+    } else {
+      const errorMessage = data?.message || data?.detail || "Signup failed.";
+      alert(typeof errorMessage === "string" ? errorMessage : JSON.stringify(errorMessage));
+    }
+    
+   }
+  catch(error){
+    console.log('Error: ',error);
+  }
+  return;
+}
+
+  
   return (
     <div className="flex flex-col flex-1 w-full overflow-y-auto lg:w-1/2 no-scrollbar">
       <div className="w-full max-w-md mx-auto mb-5 sm:pt-10">
         <Link
-          to="/"
+          to="/signin"
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
           <ChevronLeftIcon className="size-5" />
-          Back to dashboard
+          Back to sign in
         </Link>
       </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
@@ -82,7 +162,7 @@ export default function SignUpForm() {
                 </span>
               </div>
             </div>
-            <form>
+            <form onSubmit={(e) => HandleSubmit(e, email, password, firstName, lastName)}>
               <div className="space-y-5">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   {/* <!-- First Name --> */}
@@ -95,7 +175,12 @@ export default function SignUpForm() {
                       id="fname"
                       name="fname"
                       placeholder="Enter your first name"
+                      onChange={(event) => {
+                        setFirstName(event.target.value);
+                        if (!validFname) setValidFname(true);
+                      }}
                     />
+                    {!validFname && firstName && <p style={{color: 'red'}}>First name should contain only alphabets.</p>}
                   </div>
                   {/* <!-- Last Name --> */}
                   <div className="sm:col-span-1">
@@ -107,7 +192,12 @@ export default function SignUpForm() {
                       id="lname"
                       name="lname"
                       placeholder="Enter your last name"
+                      onChange={(event) => {
+                        setLastName(event.target.value);
+                        if (!validLname) setValidLname(true);
+                      }}
                     />
+                    {!validLname && lastName && <p style={{color: 'red'}}>Last name should contain only alphabets.</p>}
                   </div>
                 </div>
                 {/* <!-- Email --> */}
@@ -120,7 +210,12 @@ export default function SignUpForm() {
                     id="email"
                     name="email"
                     placeholder="Enter your email"
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      if (!validEmail) setValidEmail(true);
+                    }}
                   />
+                  {!validEmail && email && <p style={{color: 'red'}}>Invalid email format</p>}
                 </div>
                 {/* <!-- Password --> */}
                 <div>
@@ -131,6 +226,10 @@ export default function SignUpForm() {
                     <Input
                       placeholder="Enter your password"
                       type={showPassword ? "text" : "password"}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                        if (!validPassword) setValidPassword(true);
+                      }}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -142,6 +241,7 @@ export default function SignUpForm() {
                         <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
                       )}
                     </span>
+                    {!validPassword && password && <p style={{color: 'red'}}>Password should be atleast 8 characters long and should contain at least one uppercase letter, one lowercase letter, one number and one special character.</p>}
                   </div>
                 </div>
                 {/* <!-- Checkbox --> */}
@@ -181,10 +281,18 @@ export default function SignUpForm() {
                   Sign In
                 </Link>
               </p>
+              <button 
+                type="button"
+                onClick={() => setShowCredits(true)}
+                className="mt-3 text-sm font-medium text-gray-500 transition-colors hover:text-brand-500 sm:mt-0"
+              >
+                Project Credits
+              </button>
             </div>
           </div>
         </div>
       </div>
+      <Credits isOpen={showCredits} onClose={() => setShowCredits(false)} />
     </div>
   );
 }

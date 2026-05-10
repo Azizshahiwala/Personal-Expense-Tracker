@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import NotFound from "./pages/OtherPage/NotFound";
@@ -19,6 +19,9 @@ import AdminPanel from "./pages/Users/AdminPanel";
 import FinanceHistory from "./pages/Finance/History";
 import ExportReport from "./pages/Finance/ExportReport";
 import ExpensesSettlements from "./pages/Finance/ExpensesSettlements";
+import ProtectedRoute from "./components/ProtectedRoute";
+import RoomSelection from "./pages/Chatroom/RoomSelection";
+
 export default function App() {
   return (
     <>
@@ -28,16 +31,18 @@ export default function App() {
         <Routes>
           {/* Dashboard Layout */}
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<Home />} />
+
+            <Route path="/home" element={<Home />} />
 
             {/* Users */}
             <Route path="/users/members" element={<Members />} />
-            <Route path="/users/adminpanel" element={<AdminPanel />} />
+            <Route path="/users/adminpanel" element={<ProtectedRoute requiredRole="admin"><AdminPanel /></ProtectedRoute>} />
 
             {/* Chatroom */}
             <Route path="/chatroom/room" element={<Room/>} />
             <Route path="/chatroom/invite" element={<Invite/>} />
-            <Route path='/chatroom/dissolvegroup' element={<Dissolve />} />
+            <Route path='/chatroom/dissolvegroup' element={<ProtectedRoute requiredRole="admin"><Dissolve /></ProtectedRoute>} />
+            <Route path='/chatroom/room-selection' element={<RoomSelection/>}/>
 
             {/* Finance */}
             <Route path="/finance/expensesandsettlements" element={<ExpensesSettlements />} />
@@ -52,7 +57,9 @@ export default function App() {
             
           </Route>
 
-          {/* Auth Layout */}
+          {/* Public Auth Routes */}
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+          <Route path="/login" element={<Navigate to="/signin" replace />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path='/logout' element={<Logout />} />

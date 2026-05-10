@@ -1,7 +1,41 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Button from "../../components/ui/button/Button";
 
 export default function LeaveRoom() {
+  const navigate = useNavigate();
+  const [isLeaving, setIsLeaving] = useState(false);
+
+  const handleLeaveRoom = async () => {
+    setIsLeaving(true);
+    try {
+      // TODO: Call API to leave room
+      const response = await fetch('/api/groups/leave', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        // Clear room data from localStorage
+        localStorage.removeItem('currentRoom');
+        // Navigate to room selection
+        navigate('/chatroom/room-selection');
+      } else {
+        alert('Failed to leave room');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Error leaving room');
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
   return (
     <div>
       <PageMeta
@@ -15,9 +49,28 @@ export default function LeaveRoom() {
             Leave Room
           </h3>
 
-          <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">
-            Leave the chatroom or view options for exiting the conversation.
+          <p className="mb-8 text-sm text-gray-500 dark:text-gray-400 sm:text-base">
+            Are you sure you want to leave the current room? This action cannot be undone.
           </p>
+
+          <div className="space-y-4">
+            <Button
+              onClick={handleLeaveRoom}
+              disabled={isLeaving}
+              variant="outline"
+              className="w-full"
+            >
+              {isLeaving ? 'Leaving...' : 'Leave Room'}
+            </Button>
+
+            <Button
+              onClick={() => navigate('/home')}
+              variant="outline"
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -4,8 +4,13 @@ node_modules/
 *.bat
 *.zip
 *.rar
-Props-Complete-Guide.md
-Complete-Structure-Guide.md
+Group-Expense-Tracker-Docs.md
+Group-Expense-Tracker-Documentation.docx
+
+src/Backend/__pycache__/
+src/Backend/Models/__pycache__/
+src/Backend/Routes/__pycache__/
+
 # Logs
 logs
 *.log
