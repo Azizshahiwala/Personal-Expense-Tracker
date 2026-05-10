@@ -48,11 +48,15 @@ const AppSidebar: React.FC = () => {
     name: "User Profile",
     path: "/profile",
   },
-  {
-    icon: <ArrowRightIcon />,
-    name: "Leave Room",
-    path: "/chatroom/leaveroom"
-  },
+  ...(hasRoom()
+    ? [
+        {
+          icon: <ArrowRightIcon />,
+          name: "Leave Room",
+          path: "/chatroom/leaveroom"
+        },
+      ]
+    : []),
   ...(isAdmin ? [{ icon: <TrashBinIcon />,name: "Dissolve Group", path: "/chatroom/dissolvegroup"}] : []),
   {
     icon: <LockIcon />,

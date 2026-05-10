@@ -52,9 +52,7 @@ export default function App() {
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path='/chatroom/leaveroom' element={<LeaveRoom/>}/>
-            
-            
+            <Route path='/chatroom/leaveroom' element={<ProtectedRoute requireRoom><LeaveRoom/></ProtectedRoute>} />
           </Route>
 
           {/* Public Auth Routes */}
