@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
   requireRoom?: boolean;
 }
 
-//on export, we have 2 props. Children - The content to be rendered
+//on export, we have 3 props. Children - The content to be rendered
 //requiredRole - Role which is required.
 //requireRoom - User must have an active room before access.
 export default function ProtectedRoute({ children, requiredRole, requireRoom }: ProtectedRouteProps) {
