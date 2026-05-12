@@ -3,16 +3,53 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { useEffect, useState } from "react";
+import { useUserData,UpdateProfileData } from "../UserDataManager";
 
 export default function UserAddressCard() {
+  const [country, setCountry] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
+
+  const storedData = localStorage.getItem("user");
+  let userId = "";
+
+  try {
+    const parsedData = storedData ? JSON.parse(storedData) : null;
+    userId = parsedData?.id || parsedData?.unique_user_id || parsedData?.userId || "";
+  } catch {
+    userId = "";
+  }
+
+  const { userData, loading, error } = useUserData({ target_uuid: userId });
+
   const { isOpen, openModal, closeModal } = useModal();
+
   const handleSave = () => {
     // Handle save logic here
+    //Send data to backend.
     console.log("Saving changes...");
+    UpdateProfileData({
+      country:country,
+      postalCode:postalCode,
+      city:city
+    })
     closeModal();
   };
+
+  useEffect(() => {
+    if (!userData) return;
+    console.log(userData);
+    setCountry(userData.country ?? "");
+    setCity(userData.city ?? "");
+    setPostalCode(userData.postalCode ?? "");
+  }, [userData]);
+
   return (
     <>
+      {loading && <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">Loading address...</div>}
+      {error && <div className="mb-4 text-sm text-red-500">{error}</div>}
+      {!userId && <div className="mb-4 text-sm text-red-500">No user id found</div>}
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -26,7 +63,7 @@ export default function UserAddressCard() {
                   Country
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  United States.
+                  {country}
                 </p>
               </div>
 
@@ -35,7 +72,7 @@ export default function UserAddressCard() {
                   City/State
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  Phoenix, Arizona, United States.
+                  {city}
                 </p>
               </div>
 
@@ -44,16 +81,7 @@ export default function UserAddressCard() {
                   Postal Code
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  ERT 2489
-                </p>
-              </div>
-
-              <div>
-                <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                  TAX ID
-                </p>
-                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  AS4568384
+                  {postalCode}
                 </p>
               </div>
             </div>
@@ -97,23 +125,19 @@ export default function UserAddressCard() {
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                 <div>
                   <Label>Country</Label>
-                  <Input type="text" value="United States" />
+                  <Input type="text" value={country} onChange={(e) => setCountry(e.target.value)} />
                 </div>
 
                 <div>
                   <Label>City/State</Label>
-                  <Input type="text" value="Arizona, United States." />
+                  <Input type="text" value={city} onChange={(e) => setCity(e.target.value)} />
                 </div>
 
                 <div>
                   <Label>Postal Code</Label>
-                  <Input type="text" value="ERT 2489" />
+                  <Input type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
                 </div>
 
-                <div>
-                  <Label>TAX ID</Label>
-                  <Input type="text" value="AS4568384" />
-                </div>
               </div>
             </div>
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">

@@ -65,12 +65,14 @@ const AppSidebar: React.FC = () => {
   },
 ];
   const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    path: "/",
-  },
-  {
+  ...(hasRoom()
+    ? [
+        {
+          icon: <GridIcon />,
+          name: "Dashboard",
+          path: "/",
+        },
+        {
     icon: <ChatIcon />,
     name: "Chatroom",
     subItems: [
@@ -100,6 +102,8 @@ const AppSidebar: React.FC = () => {
     name: "Calendar",
     path: "/calendar",
   },
+      ]
+    : []),
 ];
 
   const [openSubmenu, setOpenSubmenu] = useState<{

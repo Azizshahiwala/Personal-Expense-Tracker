@@ -1,11 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { Link } from "react-router";
-
+import { useUserData } from "../UserDataManager";
 export default function UserDropdown() {
+  const [pfp, setPfp] = useState("");
+  const [fname, setfname] = useState("");
+  const [lname, setlname] = useState("");
+  const [email, setEmail] = useState("");
+
   const [isOpen, setIsOpen] = useState(false);
 
+  const storedData = localStorage.getItem("user");
+      let userId = "";
+    
+      try {
+        const parsedData = storedData ? JSON.parse(storedData) : null;
+        userId = parsedData?.id || parsedData?.unique_user_id || parsedData?.userId || "";
+      } catch {
+        userId = "";
+      }
+    
+      const { userData, loading, error } = useUserData({ target_uuid: userId });
+
+    useEffect(() => {
+      if (!userData) return;
+      console.log("Data from userinfocard: ",userData);
+      setfname(userData.fname ?? "");
+      setlname(userData.lname ?? "");
+      setEmail(userData.email ?? "");
+      setPfp(userData.pfp_path ?? "/images/user/default.jpg");
+    }, [userData]);
   function toggleDropdown() {
     setIsOpen(!isOpen);
   }
@@ -14,16 +39,20 @@ export default function UserDropdown() {
     setIsOpen(false);
   }
   return (
-    <div className="relative">
+    <>
+    {loading && <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">Loading address...</div>}
+      {error && <div className="mb-4 text-sm text-red-500">{error}</div>}
+      {!userId && <div className="mb-4 text-sm text-red-500">No user id found</div>}
+      <div className="relative">
       <button
         onClick={toggleDropdown}
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/images/user/owner.jpg" alt="User" />
+          <img src={pfp} alt="User" />
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">Musharof</span>
+        <span className="block mr-1 font-medium text-theme-sm">{fname + " " + lname}</span>
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -51,10 +80,10 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Musharof Chowdhury
+            {fname + " " + lname}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            randomuser@pimjo.com
+            {email}
           </span>
         </div>
 
@@ -156,5 +185,6 @@ export default function UserDropdown() {
         </Link>
       </Dropdown>
     </div>
+    </>
   );
 }

@@ -7,3 +7,4 @@ python-jose[cryptography]
 passlib[bcrypt]
 psycopg2
 pydantic[email]
+python-multipart

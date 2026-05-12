@@ -61,6 +61,30 @@ class Credentials(Base):
     password_hash = Column(String(255))  # Hashed, not plain!
     created_at = Column(DateTime)
 
+class UserProfile(Base):
+    __tablename__ = "UserProfile"
+    #UserAddressCard.tsx 
+    unique_user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"),unique=True,primary_key=True)  # One-to-one relationship with Credentials
+    country = Column(String(100),nullable=True)
+    cityAndState = Column(String(100),nullable=True)  
+    postalCode = Column(String(20),nullable=True)
+    
+    #UserInfoCard.tsx
+    first_name = Column(String(100),nullable=True)
+    last_name = Column(String(100),nullable=True)
+    email = Column(String(100),ForeignKey("Credentials.email"))
+    phone_number = Column(String(20),nullable=True)
+    bio = Column(String(500),nullable=True)
+
+    #UserMetaCard.tsx
+    
+    facebook_link = Column(String(255),nullable=True)
+    twitter_link = Column(String(255),nullable=True)
+    linkedin_link = Column(String(255),nullable=True)
+    instagram_link = Column(String(255),nullable=True)
+
+    #UserMetaCard and /header/UserDropdown.tsx
+    pfp_path = Column(String(255),default="/images/user/default.jpg",nullable=False)
 #This table is for creation of groups
 class Group(Base):
     __tablename__ = "Groups"
@@ -72,7 +96,7 @@ class Group(Base):
 
 #This table is for mapping users to groups and defining their roles (admin/member).
 class GroupMember(Base):
-    __tablename__ = "Group_members"
+    __tablename__ = "Groupmembers"
     
     id = Column(Integer, primary_key=True)
     group_id = Column(Integer, ForeignKey("Groups.id"))

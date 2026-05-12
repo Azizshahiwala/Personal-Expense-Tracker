@@ -3,15 +3,64 @@ import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { useState ,useEffect} from "react";
+import { useUserData,UpdateProfileData } from "../UserDataManager";
 
 export default function UserInfoCard() {
+    const storedData = localStorage.getItem("user");
+    let userId = "";
+  
+    try {
+      const parsedData = storedData ? JSON.parse(storedData) : null;
+      userId = parsedData?.id || parsedData?.unique_user_id || parsedData?.userId || "";
+    } catch {
+      userId = "";
+    }
+  
+    const { userData, loading, error } = useUserData({ target_uuid: userId });
+
   const { isOpen, openModal, closeModal } = useModal();
+  const [fname, setfname] = useState("");
+  const [lname, setlname] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [bio, setBio] = useState("");
+  
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [twitter, settwitter] = useState("");
+
   const handleSave = () => {
     // Handle save logic here
     console.log("Saving changes...");
+    UpdateProfileData({
+      phone_number:phone,
+      bio:bio,
+      facebook_link:facebook,
+      twitter_link:twitter,
+      linkedin_link:linkedin,
+      instagram_link:instagram
+    });
     closeModal();
   };
+  useEffect(() => {
+      if (!userData) return;
+      setfname(userData.fname ?? "");
+      setlname(userData.lname ?? "");
+      setEmail(userData.email ?? "");
+      setPhone(userData.phone_number ?? "");
+      setBio(userData.bio ?? "");
+      setInstagram(userData.instagram_link ?? "");
+      settwitter(userData.twitter_link ?? "");
+      setFacebook(userData.facebook_link ?? "");
+      setLinkedin(userData.linkedin_link ?? "");
+    }, [userData]);
   return (
+    <>
+    {loading && <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">Loading address...</div>}
+      {error && <div className="mb-4 text-sm text-red-500">{error}</div>}
+      {!userId && <div className="mb-4 text-sm text-red-500">No user id found</div>}
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
@@ -25,7 +74,7 @@ export default function UserInfoCard() {
                 First Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Musharof
+                {fname}
               </p>
             </div>
 
@@ -34,7 +83,7 @@ export default function UserInfoCard() {
                 Last Name
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Chowdhury
+                {lname}
               </p>
             </div>
 
@@ -43,7 +92,7 @@ export default function UserInfoCard() {
                 Email address
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                randomuser@pimjo.com
+                {email}
               </p>
             </div>
 
@@ -52,7 +101,7 @@ export default function UserInfoCard() {
                 Phone
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                +09 363 398 46
+                {phone}
               </p>
             </div>
 
@@ -61,7 +110,7 @@ export default function UserInfoCard() {
                 Bio
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Team Manager
+                {bio}
               </p>
             </div>
           </div>
@@ -112,26 +161,28 @@ export default function UserInfoCard() {
                     <Label>Facebook</Label>
                     <Input
                       type="text"
-                      value="https://www.facebook.com/PimjoHQ"
+                      value={facebook}
+                      onChange={(e) => setFacebook(e.target.value)}
                     />
                   </div>
 
                   <div>
                     <Label>X.com</Label>
-                    <Input type="text" value="https://x.com/PimjoHQ" />
+                    <Input type="text" value={twitter} onChange={(e) => settwitter(e.target.value)} />
                   </div>
 
                   <div>
                     <Label>Linkedin</Label>
                     <Input
                       type="text"
-                      value="https://www.linkedin.com/company/pimjo"
+                      value={linkedin}
+                      onChange={(e) => setLinkedin(e.target.value)}
                     />
                   </div>
 
                   <div>
                     <Label>Instagram</Label>
-                    <Input type="text" value="https://instagram.com/PimjoHQ" />
+                    <Input type="text" value={instagram} onChange={(e) => setInstagram(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -143,27 +194,27 @@ export default function UserInfoCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input type="text" value="Musharof" />
+                    <Input type="text" value={fname} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input type="text" value="Chowdhury" />
+                    <Input type="text" value={lname} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value="randomuser@pimjo.com" />
+                    <Input type="text" value={email} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Phone</Label>
-                    <Input type="text" value="+09 363 398 46" />
+                    <Input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} />
                   </div>
 
                   <div className="col-span-2">
                     <Label>Bio</Label>
-                    <Input type="text" value="Team Manager" />
+                    <Input type="text" value={bio} onChange={(e) => setBio(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -180,5 +231,6 @@ export default function UserInfoCard() {
         </div>
       </Modal>
     </div>
+    </>
   );
 }

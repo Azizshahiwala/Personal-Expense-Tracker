@@ -1,35 +1,98 @@
 import { useModal } from "../../hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
+import FileInput from "../form/input/FileInput";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
+import { useState, useEffect,ChangeEvent } from "react";
+import { useUserData, UpdateProfilePic, UpdateProfileData} from "../UserDataManager";
 
 export default function UserMetaCard() {
+  const [fname, setfname] = useState("");
+  const [lname, setlname] = useState("");
+  const [bio, setBio] = useState("");
+  const [city, setCity] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [pfp_preview, setPfp] = useState<string | null>("");
+  const [actual_file, setactualfle] = useState<File | null>(null);
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [twitter, settwitter] = useState("");
+
+  const storedData = localStorage.getItem("user");
+      let userId = "";
+    
+      try {
+        const parsedData = storedData ? JSON.parse(storedData) : null;
+        userId = parsedData?.id || parsedData?.unique_user_id || parsedData?.userId || "";
+      } catch {
+        userId = "";
+      }
+    
+      const { userData, loading, error } = useUserData({ target_uuid: userId });
+
+      const handlePfpChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setPfp(URL.createObjectURL(file));  // Use the component's setPfp state
+      setactualfle(file);
+    }
+  };
   const { isOpen, openModal, closeModal } = useModal();
   const handleSave = () => {
     // Handle save logic here
     console.log("Saving changes...");
+
+    if (actual_file) UpdateProfilePic({actual_file});
+    UpdateProfileData({
+      bio,
+      city,
+      phone_number: phone,
+      instagram_link: instagram,
+      facebook_link: facebook,
+      linkedin_link: linkedin,
+      twitter_link: twitter
+    });
     closeModal();
   };
+  useEffect(() => {
+        if (!userData) return;
+        setfname(userData.fname ?? "");
+        setlname(userData.lname ?? "");
+        setEmail(userData.email ?? "");
+        setPhone(userData.phone_number ?? "");
+        setBio(userData.bio ?? "");
+        setInstagram(userData.instagram_link ?? "");
+        settwitter(userData.twitter_link ?? "");
+        setFacebook(userData.facebook_link ?? "");
+        setLinkedin(userData.linkedin_link ?? "");
+        setCity(userData.city ?? "");
+        setPfp(userData.pfp_path ?? "/images/user/default.jpg");
+      }, [userData]);
   return (
     <>
+    {loading && <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">Loading address...</div>}
+      {error && <div className="mb-4 text-sm text-red-500">{error}</div>}
+      {!userId && <div className="mb-4 text-sm text-red-500">No user id found</div>}
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
             <div className="w-20 h-20 overflow-hidden border border-gray-200 rounded-full dark:border-gray-800">
-              <img src="/images/user/owner.jpg" alt="user" />
+              <img src={pfp_preview || "/images/user/owner.jpg"} alt="user" />
             </div>
             <div className="order-3 xl:order-2">
               <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                Musharof Chowdhury
+                {fname + " " + lname}
               </h4>
               <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Team Manager
+                  {bio}
                 </p>
                 <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Arizona, United States
+                  {city}
                 </p>
               </div>
             </div>
@@ -160,30 +223,39 @@ export default function UserMetaCard() {
                 </h5>
 
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+                  <div className="col-span-2">
+                    <Label>Profile Picture</Label>
+                    <FileInput onChange={handlePfpChange} />
+                  </div>
                   <div>
                     <Label>Facebook</Label>
                     <Input
                       type="text"
-                      value="https://www.facebook.com/PimjoHQ"
+                      value={facebook}
+                      onChange={(e) => setFacebook(e.target.value)}
                     />
                   </div>
 
                   <div>
                     <Label>X.com</Label>
-                    <Input type="text" value="https://x.com/PimjoHQ" />
+                    <Input 
+                    type="text" 
+                    value={twitter} 
+                    onChange={(e) => settwitter(e.target.value)} />
                   </div>
 
                   <div>
                     <Label>Linkedin</Label>
                     <Input
                       type="text"
-                      value="https://www.linkedin.com/company/pimjo"
+                      value={linkedin}
+                      onChange={(e) => setLinkedin(e.target.value)}
                     />
                   </div>
 
                   <div>
                     <Label>Instagram</Label>
-                    <Input type="text" value="https://instagram.com/PimjoHQ" />
+                    <Input type="text" value={instagram} onChange={(e) => setInstagram(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -195,27 +267,32 @@ export default function UserMetaCard() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input type="text" value="Musharof" />
+                    <Input type="text" value={fname} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input type="text" value="Chowdhury" />
+                    <Input type="text" value={lname} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input type="text" value="randomuser@pimjo.com" />
+                    <Input type="text" value={email} disabled />
                   </div>
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Phone</Label>
-                    <Input type="text" value="+09 363 398 46" />
+                    <Input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  </div>
+
+                  <div className="col-span-2 lg:col-span-1">
+                    <Label>City/State</Label>
+                    <Input type="text" value={city} onChange={(e) => setCity(e.target.value)} />
                   </div>
 
                   <div className="col-span-2">
                     <Label>Bio</Label>
-                    <Input type="text" value="Team Manager" />
+                    <Input type="text" value={bio} onChange={(e) => setBio(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -224,7 +301,7 @@ export default function UserMetaCard() {
               <Button size="sm" variant="outline" onClick={closeModal}>
                 Close
               </Button>
-              <Button size="sm" onClick={handleSave}>
+              <Button size="sm" onClick={() => handleSave()}>
                 Save Changes
               </Button>
             </div>
