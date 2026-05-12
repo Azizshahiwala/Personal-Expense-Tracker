@@ -1,10 +1,20 @@
 import { Link } from "react-router";
-
+import { useCallback } from "react";
 interface BreadcrumbProps {
   pageTitle: string;
 }
 
 const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
+
+  const hasRoom = useCallback(() => {
+      try {
+        const roomData = localStorage.getItem('currentRoom');
+        return roomData !== null && roomData !== undefined;
+      } catch (error) {
+        return false;
+      }
+    }, []);
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
       <h2
@@ -18,7 +28,7 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle }) => {
           <li>
             <Link
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400"
-              to="/"
+              to={hasRoom()? "/chatroom/room" : "/chatroom/room-selection"}
             >
               Home
               <svg

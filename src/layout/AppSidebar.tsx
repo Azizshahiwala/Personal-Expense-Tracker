@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 // Assume these icons are imported from an icon library
 import {
   ArrowRightIcon,
+  BoltIcon,
   CalenderIcon,
   ChatIcon,
   ChevronDownIcon,
@@ -44,8 +45,8 @@ const AppSidebar: React.FC = () => {
 
   const othersItems: NavItem[] = [
   {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
+    icon: <BoltIcon />,
+    name: "Account settings",
     path: "/profile",
   },
   ...(hasRoom()
