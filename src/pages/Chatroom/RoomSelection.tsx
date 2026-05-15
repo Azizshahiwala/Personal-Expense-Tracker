@@ -1,6 +1,7 @@
 //This page is loaded when user has logged in or registered.
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
@@ -8,78 +9,107 @@ import Input from "../../components/form/input/InputField";
 import Label from "../../components/form/Label";
 
 export default function RoomSelection() {
+
+  const hasRoom = () => {
+    try {
+      const roomData = localStorage.getItem('currentRoom');
+      return roomData !== null && roomData !== undefined;
+    } catch (error) {
+      return false;
+    }
+  };
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-
+  const { user, setUser } = useAuth();
+  const [createError, setCreateError] = useState('');  // ← Better than alert()
+  const [joinError, setJoinError] = useState('');
+  const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
   const handleCreateRoom = async () => {
     if (!roomName.trim()) {
-      alert('Please enter a room name');
+      setCreateError('Please enter a room name');
       return;
     }
     setIsCreating(true);
+    setCreateError('');
     try {
-      // TODO: Call API to create room
-      const response = await fetch('/api/groups/create', {
+
+      const data = localStorage.getItem('user');
+      const parsed = data ? JSON.parse(data) : null;
+      let uuid = parsed.id;
+      const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
-        body: JSON.stringify({ name: roomName })
+        body: JSON.stringify({ roomname: roomName ,created_by_uuid:uuid})
       });
       if (response.ok) {
         const roomData = await response.json();
-        // Store room information in localStorage
         localStorage.setItem('currentRoom', JSON.stringify(roomData));
-        // Navigate to dashboard after room selection
-        navigate('/home');
+        console.log("Room data: ",roomData);
+        // the ... is a spread operator, which appends shallow object of existing user obj.
+        // and ! mark in front, tells to treat the obj as not null even if its empty.
+        //a user is an admin who creates a group.
+        setUser({...user!,role:"admin"});
+        navigate('chatroom/room');
       } else {
-        alert('Failed to create room');
+        setCreateError('Failed to create room');
       }
     } catch (error) {
       console.error(error);
-      alert('Error creating room');
+      setCreateError('Error creating room'); 
     } finally {
       setIsCreating(false);
+      setCreateError('');
     }
   };
-
+//V7YOME4584
   const handleJoinRoom = async () => {
+    const data = localStorage.getItem('user');
+    const parsed = data ? JSON.parse(data) : null;
+    let uuid = parsed.id;
     if (!joinCode.trim()) {
-      alert('Please enter a join code');
+      setJoinError('Please enter a join code');
       return;
     }
     setIsJoining(true);
     try {
-      // TODO: Call API to join room
-      const response = await fetch('/api/groups/join', {
+      const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
-        body: JSON.stringify({ code: joinCode })
+        body: JSON.stringify({ joincode: joinCode, joining_by_uuid: uuid})
       });
       if (response.ok) {
         const roomData = await response.json();
-        // Store room information in localStorage
         localStorage.setItem('currentRoom', JSON.stringify(roomData));
-        // Navigate to dashboard after room selection
+        
+        // the ... is a spread operator, which appends shallow object of existing user obj.
+        // and ! mark in front, tells to treat the obj as not null even if its empty.
+        //a user is an member who joins a group.
+        setUser({...user!,role:'member'});
         navigate('/home');
       } else {
-        alert('Failed to join room');
+        setJoinError('Failed to join room');
       }
     } catch (error) {
       console.error(error);
-      alert('Error joining room');
+      setJoinError('Error joining room');
     } finally {
       setIsJoining(false);
+      setJoinError('');
     }
   };
 
+  if(hasRoom()){
+    navigate("/chatroom/room");
+  } 
   return (
     <div>
       <PageMeta
@@ -101,6 +131,7 @@ export default function RoomSelection() {
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
               <h4 className="mb-4 font-medium text-gray-800 dark:text-white/90">Create a New Room</h4>
               <div className="space-y-4">
+                
                 <div>
                   <Label>Room Name</Label>
                   <Input
@@ -110,6 +141,9 @@ export default function RoomSelection() {
                     onChange={(e) => setRoomName(e.target.value)}
                   />
                 </div>
+                {createError && (
+                  <p className="text-sm text-red-500">{createError}</p>
+                )}
                 <Button
                   onClick={handleCreateRoom}
                   disabled={isCreating}
@@ -133,6 +167,9 @@ export default function RoomSelection() {
                     onChange={(e) => setJoinCode(e.target.value)}
                   />
                 </div>
+                {joinError && (
+                  <p className="text-sm text-red-500">{joinError}</p>
+                )}
                 <Button
                   onClick={handleJoinRoom}
                   disabled={isJoining}

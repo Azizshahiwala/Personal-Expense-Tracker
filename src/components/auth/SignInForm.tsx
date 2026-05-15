@@ -45,12 +45,22 @@ e.preventDefault();
       const data = await response.json();
       if (response.ok) {
         // Store token and user data
-        localStorage.setItem('token', data.access_token);
+        localStorage.setItem('access_token', data.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
+
+        if (data.room_data) {
+        localStorage.setItem('currentRoom', JSON.stringify(data.room_data));
+        
+        login({ ...data.user, role: data.room_data.role });} 
+        else 
+        {
+        localStorage.removeItem('currentRoom');
+        login(data.user);}
+
         // Use the auth context login
         login(data.user);
         // Navigate to room selection
-        window.location.href = '/chatroom/room-selection';
+        window.location.href = '/';
       } else {
         alert(data.detail || 'Login failed');
       }

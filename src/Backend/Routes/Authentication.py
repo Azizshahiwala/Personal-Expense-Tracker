@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 
 #We import the database i am going to use, with a session function.
-from Models.Database import Credentials,UserProfile, get_db
+from Models.Database import Credentials,UserProfile,Group,GroupMember, get_db
 
 #Import my own custom made encrypter class.
 from Models.Encrypter import encrypter
@@ -185,6 +185,7 @@ def register(user:registerSchema, db: Session = Depends(get_db)):
 @router.post("/login")
 def login(user: loginSchema, db: Session = Depends(get_db)):
     try:
+        room_data= None
         # Sanitize email
         user.email = user.email.strip().lower()
 
@@ -203,6 +204,20 @@ def login(user: loginSchema, db: Session = Depends(get_db)):
             data={"sub": db_user.email, "unique_user_id": str(db_user.unique_user_id)}, expires_delta=access_token_expires
         )
 
+        #Check if user is a member of any grp:
+        member_record = db.query(GroupMember).filter(GroupMember.user_id == db_user.unique_user_id).first()
+        
+        if member_record:
+            group_record = db.query(Group).filter(Group.id == member_record.id).first()
+            
+            if group_record:
+                room_data = {
+                    "Groupname": group_record.group_name,
+                    "GroupMemberkey": member_record.id,
+                    "Groupid": group_record.invitecode,
+                    "role": member_record.is_admin
+                }
+                
         return {
             "access_token": str(access_token),
             "token_type": "bearer",
@@ -211,7 +226,8 @@ def login(user: loginSchema, db: Session = Depends(get_db)):
                 "first_name": db_user.first_name,
                 "last_name": db_user.last_name,
                 "email": db_user.email
-            }
+            },
+            "room_data":room_data
         }
 
     except HTTPException:

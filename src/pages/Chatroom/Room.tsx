@@ -1,7 +1,9 @@
+import { useState , useEffect} from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-
+const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
 export default function Room() {
+
   return (
     <div>
       <PageMeta
@@ -18,6 +20,7 @@ export default function Room() {
           <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">
             Use this page to manage chatroom details and active conversations.
           </p>
+          
         </div>
       </div>
     </div>
