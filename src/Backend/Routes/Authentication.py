@@ -208,7 +208,7 @@ def login(user: loginSchema, db: Session = Depends(get_db)):
         member_record = db.query(GroupMember).filter(GroupMember.user_id == db_user.unique_user_id).first()
         
         if member_record:
-            group_record = db.query(Group).filter(Group.id == member_record.id).first()
+            group_record = db.query(Group).filter(Group.invitecode == member_record.group_id).first()
             
             if group_record:
                 room_data = {

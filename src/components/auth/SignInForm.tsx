@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
@@ -9,6 +9,7 @@ import { useAuth } from "../../context/AuthContext";
 import Credits from "./Credits";
 
 export default function SignInForm() {
+  const navigate = useNavigate();
   const [showCredits, setShowCredits] = useState(false);
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
   const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +21,7 @@ export default function SignInForm() {
 
   //This function handles submit.
 const HandleSubmit = async (e: React.FormEvent, email: string, password: string) => {
-e.preventDefault();
+  e.preventDefault();
 
   try {
     const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -42,34 +43,34 @@ e.preventDefault();
       body: JSON.stringify({ email, password })
     });
 
-      const data = await response.json();
-      if (response.ok) {
-        // Store token and user data
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+    const data = await response.json();
 
-        if (data.room_data) {
+    if (response.ok) {
+      // 1. Store token and base user data
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // 2. Safely handle room data
+      if (data.room_data) {
         localStorage.setItem('currentRoom', JSON.stringify(data.room_data));
         
-        login({ ...data.user, role: data.room_data.role });} 
-        else 
-        {
-        localStorage.removeItem('currentRoom');
-        login(data.user);}
-
-        // Use the auth context login
-        login(data.user);
-        // Navigate to room selection
-        window.location.href = '/';
+        // Pass the role securely into the context
+        login({ ...data.user, role: data.room_data.role });
       } else {
-        alert(data.detail || 'Login failed');
+        localStorage.removeItem('currentRoom');
+        login(data.user);
       }
-    } catch (error) {
-      console.log(error);
-      alert('An error occurred during login');
+
+     window.location.href = '/'; 
+      
+    } else {
+      alert(data.detail || 'Login failed');
     }
-    return;
+  } catch (error) {
+    console.log(error);
+    alert('An error occurred during login');
   }
+};
 
   return (
     <div className="flex flex-col flex-1">

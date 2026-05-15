@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Request,Form
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
 from pydantic import BaseModel, EmailStr, field_validator
 import re, os, shutil, uuid,random,string
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 
 #We import the database i am going to use, with a session function.
-from Models.Database import Group,GroupMember, get_db
+from Models.Database import Group,GroupMember,Credentials,UserProfile, get_db
 from Routes.Authentication import get_current_user
 router = APIRouter(prefix="/api/groups", tags=["Groups"])
 
@@ -221,3 +220,49 @@ def getRoomCode(db: Session = Depends(get_db),current_user: dict = Depends(get_c
     except HTTPException as e:
         db.rollback()
         raise
+
+@router.get("/members/{groupcode}")
+def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    try:
+        # 1. Verify the user requesting the list is actually in this group
+        user_in_group = db.query(GroupMember).filter(
+            GroupMember.group_id == groupcode,
+            GroupMember.user_id == current_user['user_id']
+        ).first()
+
+        if not user_in_group:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this room.")
+
+        # 2. INLINED QUERY: Join GroupMember, Credentials, and UserProfile to get the full UI data
+        members_data = db.query(
+            GroupMember.is_admin,
+            Credentials.first_name,
+            Credentials.last_name,
+            Credentials.email,
+            UserProfile.pfp_path
+        ).join(
+            Credentials, GroupMember.user_id == Credentials.unique_user_id
+        ).join(
+            UserProfile, GroupMember.user_id == UserProfile.unique_user_id
+        ).filter(
+            GroupMember.group_id == groupcode
+        ).all()
+
+        # 3. Construct the response
+        member_data = []
+        for member in members_data:
+            member_data.append({
+                "first_name": member.first_name,
+                "last_name": member.last_name,
+                "email": member.email,
+                "role": member.is_admin,
+                "pfp_path": member.pfp_path
+            })
+
+        return {"members": member_data}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("Fetch members error:", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch group members.")

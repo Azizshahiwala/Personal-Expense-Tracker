@@ -31,7 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    try {
+      const roomData = localStorage.getItem('currentRoom');
+      if (roomData) {
+        const parsedRoom = JSON.parse(roomData);
+        return parsedRoom.role === 'admin';
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  });
 
   // Inlined logic to check the room's role specifically
   const updateAdminStatus = useCallback(() => {
@@ -58,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = (userData: User) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
-    updateAdminStatus();
+    updateAdminStatus(); 
   };
 
   const logout = () => {
