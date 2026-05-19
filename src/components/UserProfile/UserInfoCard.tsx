@@ -33,7 +33,6 @@ export default function UserInfoCard() {
 
   const handleSave = () => {
     // Handle save logic here
-    console.log("Saving changes...");
     UpdateProfileData({
       phone_number:phone,
       bio:bio,

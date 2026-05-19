@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey,Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -87,21 +87,36 @@ class UserProfile(Base):
     pfp_path = Column(String(255),default="/images/user/default.jpg",nullable=False)
 #This table is for creation of groups
 class Group(Base):
-    __tablename__ = "Groups"
+    __tablename__ = "Group"
     
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True,autoincrement=True)
     group_name = Column(String(100))
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))  # Admin
+    invitecode = Column(String(10),nullable=False,unique=True)
     is_dissolved = Column(Boolean, default=False)
 
 #This table is for mapping users to groups and defining their roles (admin/member).
 class GroupMember(Base):
     __tablename__ = "Groupmembers"
-    
-    id = Column(Integer, primary_key=True)
-    group_id = Column(Integer, ForeignKey("Groups.id"))
+    id = Column(Integer, primary_key=True,autoincrement=True)
+    group_id = Column(String(10), ForeignKey("Group.invitecode"))
     user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))
     is_admin = Column(String(20), default="member")  # "admin" or "member"
+
+class ChatMessages(Base):
+    __tablename__ = "Chatmessages"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    #You need group id and sender id ondelete cascade. and index. so that retrival is fast.
+    
+    group_id = Column(String(10), ForeignKey("Group.invitecode", ondelete="CASCADE"), nullable=False, index=True)
+
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id", ondelete="CASCADE"), nullable=False)
+    
+    message = Column(Text, nullable=False)
+
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    
 
 def create_tables():
     try:
