@@ -8,6 +8,7 @@ from jose import JWTError, jwt
 #We import the database i am going to use, with a session function.
 from Models.Database import Group,GroupMember,Credentials,UserProfile, get_db
 from Routes.Authentication import get_current_user
+
 router = APIRouter(prefix="/api/groups", tags=["Groups"])
 
 class RoomCodeCollide(Exception):
@@ -87,7 +88,8 @@ def createRoom(room: createRoomSchema, db: Session = Depends(get_db), current_us
     room_data = {
         "group_id": record.group_id,
         "room_code": entry.invitecode,
-        "role": record.is_admin
+        "role": record.is_admin,
+        "Groupname":room.roomname
     }
     
     return room_data

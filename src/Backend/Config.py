@@ -22,11 +22,13 @@ class Config:
     VITE_WEB_PATH = None
     VITE_PY_PATH = None
     VITE_ROUTE_API_KEY = None
+    REDIS_URL = None
+
     
     @classmethod 
     def loadvariables(cls):
         try:
-            required_vars = ["DBHOSTNAME", "DBDATABASE", "DBUSERNAME", "DBPASSWORD", "DBPORT", "LOCALHOST", "VITE_WEB_PATH", "VITE_PY_PATH", "VITE_ROUTE_API_KEY"]
+            required_vars = ["DBHOSTNAME", "DBDATABASE", "DBUSERNAME", "DBPASSWORD", "DBPORT", "LOCALHOST", "VITE_WEB_PATH", "VITE_PY_PATH", "VITE_ROUTE_API_KEY","REDIS_URL","SECRET_KEY","ALGORITHM","ACCESS_TOKEN_EXPIRE_MINUTES"]
                 
             for var in required_vars:
                 if os.getenv(var) is None:
@@ -41,7 +43,10 @@ class Config:
             cls.VITE_WEB_PATH = os.getenv("VITE_WEB_PATH")
             cls.VITE_PY_PATH = os.getenv("VITE_PY_PATH")
             cls.VITE_ROUTE_API_KEY = os.getenv("VITE_ROUTE_API_KEY")
-            
+            cls.REDIS_URL = os.getenv("REDIS_URL")
+            cls.SECRET_KEY = os.getenv("SECRET_KEY")
+            cls.ALGORITHM = os.getenv("ALGORITHM")
+            cls.ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
             print("Configuration loaded successfully.")
             
         except Exception as e:
@@ -71,6 +76,9 @@ class Config:
             "ALGORITHM": cls.ALGORITHM,
             "ACCESS_TOKEN_EXPIRE_MINUTES": cls.ACCESS_TOKEN_EXPIRE_MINUTES
         }
+    @classmethod
+    def getRedisUrl(cls):
+        return {"REDIS_URL":cls.REDIS_URL}
     
     
 

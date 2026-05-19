@@ -9,6 +9,8 @@ interface Message {
   message: string;
   timestamp: string;
 }
+const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+const activeUserId = currentUser.id || "Me";
 
 // ─── Avatar initials helper ───────────────────────────────────────────────────
 function getInitials(name: string) {
@@ -32,93 +34,91 @@ function getAvatarColor(name: string) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function Room() {
-
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(false); 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
   const socketRef = useRef<WebSocket | null>(null);
 
-  // ── Fix 1: Read activeUserId INSIDE component so it's always fresh ──────────
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const activeUserId = currentUser.user_id || currentUser.id || "";
+  const getHistory = async () =>{
 
-  const getHistory = async () => {
-    const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-    const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "—";
+      const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
+      const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "—";
+      
+      const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCode}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
 
-    const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCode}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-      },
-    });
-
-    if (response.ok) {
-      const current = JSON.parse(localStorage.getItem("user") || "{}");
-      // Fix 2: use user_id not id
-      const myId = current?.user_id || current?.id || "";
-      const data = await response.json();
-
-      const formatted = data.history.map((msg: any, index: any) => ({
-        id: msg.id ? msg.id.toString() : index.toString(),
-        // Fix 3: backend history returns "Senderid" (no underscore, capital S)
-        sender_id: msg.Senderid || msg.sender_id || "unknown",
-        sender_name: myId === (msg.Senderid || msg.sender_id) ? "You" : msg.Username,
-        // Fix 4: backend history returns lowercase "message"
-        message: msg.message || msg.Message || "",
-        // Fix 5: backend history returns lowercase "timestamp"  
-        timestamp: new Date(msg.Timestamp || msg.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      }));
-
-      setMessages(formatted);
-    }
-  };
-
+      if(response.ok){
+        const current = JSON.parse(localStorage.getItem("user") || "{}");
+        const User = current?.id || "";
+        const data = await response.json();
+        //Now we format list of json items using map function.
+        const formatted = data.history.map((msg:any,index:any)=>({
+          id: msg.id ? msg.id.toString() : index.toString(), 
+          sender_id: msg.Sender_id || "unknown",
+          sender_name: (User == msg.Sender_id) ? "You" : msg.Username,
+          message: msg.Message,
+          timestamp: new Date(msg.Timestamp).toLocaleTimeString([], { 
+          hour: "2-digit", 
+          minute: "2-digit" 
+        })
+        
+        }));  
+        setMessages(formatted);
+        console.log("Data fetched: "+JSON.stringify(formatted));
+      }
+  }
+  
   useEffect(() => {
+    //Get history first.
     getHistory();
 
     const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
     const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "";
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem('access_token');
 
     if (!roomCode || !token) return;
+
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const rawDomain = VITE_ROUTE_API_KEY.replace(/^https?:\/\//, "");
-    const wsUrl = `${protocol}//${rawDomain}/api/chat/ws/${roomCode}?token=${token}`;
+    
+    //i will remove https to wss. that means its "web socket secure". If it localhost, its "ws -> web socket"
+    const rawDomain = VITE_ROUTE_API_KEY.replace(/^https?:\/\//, '');
+    const wsUrl = `${protocol}//${rawDomain}/chat/ws/${roomCode}?token=${token}`;
 
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
-
-    ws.onopen = () => setIsConnected(true);
+    
+    ws.onopen = () => {
+      setIsConnected(true);
+    };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       const current = JSON.parse(localStorage.getItem("user") || "{}");
-      const myId = current?.user_id || current?.id || "";
-
+      
       const incomingMessage: Message = {
-        id: data.id?.toString() || Date.now().toString(),
-        // Fix 6: broadcast sends lowercase "sender_id"
-        sender_id: data.sender_id,
-        sender_name: data.sender_id === myId ? "You" : data.Username,
-        // Fix 7: broadcast sends lowercase "message"
-        message: data.message,
-        timestamp: new Date(data.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        id: data.id.toString(),
+        sender_id: data.Sender_id,
+        sender_name: data.Sender_id === (current.user_id || current.id) ? "You" : data.Username,
+        message: data.Message || data.message,
+        timestamp: new Date(data.Timestamp || data.timestamp).toLocaleTimeString([], { 
+          hour: "2-digit", 
+          minute: "2-digit" 
+        })
       };
-
-      setMessages((prev) => [...prev, incomingMessage]);
+      setMessages((prevMessages) => {
+        return [...prevMessages, incomingMessage];
+      });
     };
 
     ws.onclose = (event) => {
@@ -126,21 +126,26 @@ export default function Room() {
       setIsConnected(false);
     };
 
-    ws.onerror = (error) => console.log("WS ERROR:", error);
-
+    ws.onerror = (error) =>{
+      console.log("WS ERROR:", error);
+    }
+    
     return () => {
-      ws.close();
-      socketRef.current = null;
-    };
-  }, []);
-
+      if (socketRef.current) {
+        ws.close();
+        socketRef.current = null;
+      }};
+  }, []); 
+  
   // Auto-scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  
   const sendMessage = () => {
     const text = inputText.trim();
+
     if (text === "") return;
 
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
@@ -160,12 +165,13 @@ export default function Room() {
   const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
   const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "—";
   const roomName = currentRoom?.room_name || currentRoom?.Groupname || "Room";
-
+  
   return (
     <>
       <PageMeta title="Room | Group Expense Tracker" description="Group chatroom." />
       <PageBreadcrumb pageTitle="Chatroom" />
 
+      {/* ── Outer wrapper ───────────────────────────────────────────────────── */}
       <div style={styles.wrapper}>
 
         {/* ── Room header ─────────────────────────────────────────────────── */}
@@ -186,6 +192,7 @@ export default function Room() {
         {/* ── Messages area ────────────────────────────────────────────────── */}
         <div style={styles.msgArea}>
 
+          {/* Date divider */}
           <div style={styles.dateDivider}>
             <div style={styles.dateLine} />
             <span style={styles.dateText}>Today</span>
@@ -193,7 +200,6 @@ export default function Room() {
           </div>
 
           {messages.map((msg, idx) => {
-            // Fix 8: compare against activeUserId which now uses user_id
             const isMine = msg.sender_id === activeUserId;
             const prevMsg = messages[idx - 1];
             const sameSender = prevMsg && prevMsg.sender_id === msg.sender_id;
@@ -221,6 +227,7 @@ export default function Room() {
 
                 {/* Bubble */}
                 <div style={{ maxWidth: "68%", display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start" }}>
+                  {/* Sender name — only for others, first in group */}
                   {!isMine && !sameSender && (
                     <span style={styles.senderName}>{msg.sender_name}</span>
                   )}
@@ -228,7 +235,9 @@ export default function Room() {
                   <div style={{
                     ...styles.bubble,
                     ...(isMine ? styles.bubbleMine : styles.bubbleOther),
-                    borderRadius: isMine ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
+                    borderRadius: isMine
+                      ? (sameSender ? "18px 4px 18px 18px" : "18px 4px 18px 18px")
+                      : (sameSender ? "4px 18px 18px 18px" : "4px 18px 18px 18px"),
                   }}>
                     {msg.message}
                   </div>
@@ -236,6 +245,7 @@ export default function Room() {
                   <span style={styles.timestamp}>{msg.timestamp}</span>
                 </div>
 
+                {/* Right spacer for other messages */}
                 {!isMine && <div style={{ width: "8px" }} />}
               </div>
             );
@@ -267,7 +277,7 @@ export default function Room() {
               aria-label="Send message"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
           </div>
@@ -302,12 +312,37 @@ const styles: Record<string, React.CSSProperties> = {
     borderBottom: "1px solid #3B7030",
     flexShrink: 0,
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: "12px" },
-  leafIcon: { fontSize: "22px", lineHeight: 1 },
-  headerTitle: { fontSize: "16px", fontWeight: 600, color: "#D4E8B0", letterSpacing: "0.02em" },
-  headerSub: { fontSize: "11px", color: "#8FC87A", marginTop: "2px", fontFamily: "'Courier New', monospace" },
-  dot: { width: "8px", height: "8px", borderRadius: "50%" },
-  connStatus: { fontSize: "12px", color: "#8FC87A", fontFamily: "system-ui, sans-serif" },
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  leafIcon: {
+    fontSize: "22px",
+    lineHeight: 1,
+  },
+  headerTitle: {
+    fontSize: "16px",
+    fontWeight: 600,
+    color: "#D4E8B0",
+    letterSpacing: "0.02em",
+  },
+  headerSub: {
+    fontSize: "11px",
+    color: "#8FC87A",
+    marginTop: "2px",
+    fontFamily: "'Courier New', monospace",
+  },
+  dot: {
+    width: "8px",
+    height: "8px",
+    borderRadius: "50%",
+  },
+  connStatus: {
+    fontSize: "12px",
+    color: "#8FC87A",
+    fontFamily: "system-ui, sans-serif",
+  },
   msgArea: {
     flex: 1,
     overflowY: "auto",
@@ -317,43 +352,121 @@ const styles: Record<string, React.CSSProperties> = {
     scrollbarWidth: "thin",
     scrollbarColor: "#C8BFA0 transparent",
   },
-  dateDivider: { display: "flex", alignItems: "center", gap: "10px", margin: "8px 0 20px" },
-  dateLine: { flex: 1, height: "1px", background: "#C8BFA0", opacity: 0.5 },
-  dateText: {
-    fontSize: "11px", color: "#8A7E65", fontFamily: "system-ui, sans-serif",
-    letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+  dateDivider: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    margin: "8px 0 20px",
   },
-  msgRow: { display: "flex", alignItems: "flex-end", gap: "8px" },
+  dateLine: {
+    flex: 1,
+    height: "1px",
+    background: "#C8BFA0",
+    opacity: 0.5,
+  },
+  dateText: {
+    fontSize: "11px",
+    color: "#8A7E65",
+    fontFamily: "system-ui, sans-serif",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+  },
+  msgRow: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: "8px",
+  },
   avatar: {
-    width: "32px", height: "32px", borderRadius: "50%",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: "11px", fontWeight: 700, fontFamily: "system-ui, sans-serif",
-    flexShrink: 0, border: "1.5px solid rgba(255,255,255,0.3)",
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "11px",
+    fontWeight: 700,
+    fontFamily: "system-ui, sans-serif",
+    flexShrink: 0,
+    border: "1.5px solid rgba(255,255,255,0.3)",
   },
   senderName: {
-    fontSize: "11px", color: "#6B7A5A", marginBottom: "3px",
-    marginLeft: "2px", fontFamily: "system-ui, sans-serif", fontWeight: 600,
+    fontSize: "11px",
+    color: "#6B7A5A",
+    marginBottom: "3px",
+    marginLeft: "2px",
+    fontFamily: "system-ui, sans-serif",
+    fontWeight: 600,
   },
-  bubble: { padding: "10px 14px", fontSize: "14.5px", lineHeight: "1.55", wordBreak: "break-word", position: "relative" },
-  bubbleMine: { background: "#2D5A27", color: "#D8ECC0", boxShadow: "0 2px 8px rgba(45,90,39,0.18)" },
-  bubbleOther: { background: "#FFFFFF", color: "#2C2B1E", border: "1px solid #E0D9C5", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
-  timestamp: { fontSize: "10px", color: "#9E9580", marginTop: "3px", fontFamily: "system-ui, sans-serif" },
-  inputBar: { padding: "12px 20px 16px", background: "#F0EDE3", borderTop: "1px solid #D4C9A8", flexShrink: 0 },
+  bubble: {
+    padding: "10px 14px",
+    fontSize: "14.5px",
+    lineHeight: "1.55",
+    wordBreak: "break-word",
+    position: "relative",
+  },
+  bubbleMine: {
+    background: "#2D5A27",
+    color: "#D8ECC0",
+    boxShadow: "0 2px 8px rgba(45,90,39,0.18)",
+  },
+  bubbleOther: {
+    background: "#FFFFFF",
+    color: "#2C2B1E",
+    border: "1px solid #E0D9C5",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+  },
+  timestamp: {
+    fontSize: "10px",
+    color: "#9E9580",
+    marginTop: "3px",
+    fontFamily: "system-ui, sans-serif",
+  },
+  inputBar: {
+    padding: "12px 20px 16px",
+    background: "#F0EDE3",
+    borderTop: "1px solid #D4C9A8",
+    flexShrink: 0,
+  },
   inputWrap: {
-    display: "flex", gap: "10px", alignItems: "center",
-    background: "#FFFFFF", border: "1.5px solid #C8BFA0",
-    borderRadius: "24px", padding: "6px 8px 6px 18px", transition: "border-color 0.2s",
+    display: "flex",
+    gap: "10px",
+    alignItems: "center",
+    background: "#FFFFFF",
+    border: "1.5px solid #C8BFA0",
+    borderRadius: "24px",
+    padding: "6px 8px 6px 18px",
+    transition: "border-color 0.2s",
   },
   input: {
-    flex: 1, border: "none", outline: "none", background: "transparent",
-    fontSize: "14px", color: "#2C2B1E", fontFamily: "'Georgia', serif",
-    lineHeight: "1.5", padding: "4px 0",
+    flex: 1,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    fontSize: "14px",
+    color: "#2C2B1E",
+    fontFamily: "'Georgia', serif",
+    lineHeight: "1.5",
+    padding: "4px 0",
   },
   sendBtn: {
-    width: "38px", height: "38px", borderRadius: "50%", border: "none",
-    background: "#2D5A27", color: "#D4E8B0", display: "flex",
-    alignItems: "center", justifyContent: "center", flexShrink: 0,
+    width: "38px",
+    height: "38px",
+    borderRadius: "50%",
+    border: "none",
+    background: "#2D5A27",
+    color: "#D4E8B0",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
     transition: "background 0.15s, transform 0.1s",
   },
-  inputHint: { fontSize: "11px", color: "#B0A88A", marginTop: "6px", textAlign: "center" as const, fontFamily: "system-ui, sans-serif" },
+  inputHint: {
+    fontSize: "11px",
+    color: "#B0A88A",
+    marginTop: "6px",
+    textAlign: "center" as const,
+    fontFamily: "system-ui, sans-serif",
+  },
 };

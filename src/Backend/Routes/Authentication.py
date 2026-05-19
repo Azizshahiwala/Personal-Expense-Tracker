@@ -43,7 +43,6 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 #This is used to get a existin jwt token
 def get_current_user(request: Request):
-    # FIX 2: Removed db: Session = Depends(get_db) from get_current_user.
     # The extra DB query (verifying user still exists) is optional overhead.
     # The JWT token itself is proof enough for most routes.
     # If you need to verify the user still exists in DB, add it back only
@@ -199,7 +198,7 @@ def login(user: loginSchema, db: Session = Depends(get_db)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
 
         # Create access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
         access_token = create_access_token(
             data={"sub": db_user.email, "unique_user_id": str(db_user.unique_user_id)}, expires_delta=access_token_expires
         )
