@@ -150,7 +150,7 @@ def register(user:registerSchema, db: Session = Depends(get_db)):
             db.refresh(newUser)
 
             #now at the end, create a token.
-            token = create_access_token(data={"sub": newUser.email, "unique_user_id": str(newUser.unique_user_id)}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+            token = create_access_token(data={"sub": newUser.email, "unique_user_id": str(newUser.unique_user_id)}, expires_delta=timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
 
             #After adding Credentials, refresh. Then create new object. To link, use PreviousObj.unique_user_id and
             #then add it.
@@ -198,7 +198,7 @@ def login(user: loginSchema, db: Session = Depends(get_db)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
 
         # Create access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
         access_token = create_access_token(
             data={"sub": db_user.email, "unique_user_id": str(db_user.unique_user_id)}, expires_delta=access_token_expires
         )
