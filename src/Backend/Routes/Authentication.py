@@ -149,7 +149,7 @@ def register(user:registerSchema, db: Session = Depends(get_db)):
             db.refresh(newUser)
 
             #now at the end, create a token.
-            token = create_access_token(data={"sub": newUser.email, "unique_user_id": str(newUser.unique_user_id)}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+            token = create_access_token(data={"sub": newUser.email, "unique_user_id": str(newUser.unique_user_id)}, expires_delta=timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
 
             #After adding Credentials, refresh. Then create new object. To link, use PreviousObj.unique_user_id and
             #then add it.
