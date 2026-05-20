@@ -41,7 +41,6 @@ export default function Room() {
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
   const socketRef = useRef<WebSocket | null>(null);
 
-  // ── Fix 1: Read activeUserId INSIDE component so it's always fresh ──────────
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const activeUserId = currentUser.user_id || currentUser.id || "";
 
@@ -59,18 +58,14 @@ export default function Room() {
 
     if (response.ok) {
       const current = JSON.parse(localStorage.getItem("user") || "{}");
-      // Fix 2: use user_id not id
       const myId = current?.user_id || current?.id || "";
       const data = await response.json();
 
       const formatted = data.history.map((msg: any, index: any) => ({
         id: msg.id ? msg.id.toString() : index.toString(),
-        // Fix 3: backend history returns "Senderid" (no underscore, capital S)
         sender_id: msg.Senderid || msg.sender_id || "unknown",
         sender_name: myId === (msg.Senderid || msg.sender_id) ? "You" : msg.Username,
-        // Fix 4: backend history returns lowercase "message"
-        message: msg.message || msg.Message || "",
-        // Fix 5: backend history returns lowercase "timestamp"  
+        message: msg.message || msg.Message || "", 
         timestamp: new Date(msg.Timestamp || msg.timestamp).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -93,7 +88,7 @@ export default function Room() {
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const rawDomain = VITE_ROUTE_API_KEY.replace(/^https?:\/\//, "");
-    const wsUrl = `${protocol}//${rawDomain}/api/chat/ws/${roomCode}?token=${token}`;
+    const wsUrl = `${protocol}//${rawDomain}/chat/ws/${roomCode}?token=${token}`;
 
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;

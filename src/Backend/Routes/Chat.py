@@ -15,8 +15,7 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
     try:
         user_in_group = db.query(GroupMember).filter(
             GroupMember.group_id == roomcode,
-            GroupMember.user_id == current_user['user_id']
-        ).first()
+            GroupMember.user_id == current_user['user_id']).first()
 
         if not user_in_group:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User does not exists in this group.")
@@ -41,7 +40,7 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
                 "Username":msg.first_name+" "+msg.last_name,
                 "pfp_path":msg.pfp_path
             })
-
+        print(response)
         return {"history":response}
     except HTTPException:
         raise 

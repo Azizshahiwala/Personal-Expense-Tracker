@@ -143,13 +143,14 @@ def register(user:registerSchema, db: Session = Depends(get_db)):
             newUser = Credentials(first_name=user.first_name, 
                                   last_name=user.last_name, 
                                   email=user.email, 
-                                  password_hash=hashed_password)
+                                  password_hash=hashed_password,
+                                  created_at=datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
             db.add(newUser)
             db.commit()
             db.refresh(newUser)
 
             #now at the end, create a token.
-            token = create_access_token(data={"sub": newUser.email, "unique_user_id": str(newUser.unique_user_id)}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+            token = create_access_token(data={"sub": newUser.email, "unique_user_id": str(newUser.unique_user_id)}, expires_delta=timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES)))
 
             #After adding Credentials, refresh. Then create new object. To link, use PreviousObj.unique_user_id and
             #then add it.
@@ -185,7 +186,8 @@ def register(user:registerSchema, db: Session = Depends(get_db)):
 def login(user: loginSchema, db: Session = Depends(get_db)):
     try:
         room_data= None
-        # Sanitize email
+        print("User:",user)
+
         user.email = user.email.strip().lower()
 
         # Find user by email
@@ -243,7 +245,8 @@ def getUserData(target_uuid: str = "",target_email: str = "", current_user: dict
     or
     GET /api/auth/getuserdata?target_email=user@email.com
     """
-        
+        print(target_email)
+        print(target_uuid)
         if target_uuid == "" and target_email == "":
             raise HTTPException(status_code=400, detail="Provide target_uuid or target_email")
     
@@ -253,7 +256,7 @@ def getUserData(target_uuid: str = "",target_email: str = "", current_user: dict
             profile = db.query(UserProfile).filter(UserProfile.unique_user_id == target_uuid).first()
         elif target_email != "":
             profile = db.query(UserProfile).filter(UserProfile.email == target_email).first()
-    
+
         if not profile:
             raise HTTPException(status_code=404, detail="User not found")
     
