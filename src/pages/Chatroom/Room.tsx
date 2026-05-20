@@ -36,20 +36,18 @@ export default function Room() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isConnected, setIsConnected] = useState(false);
+  
+  const [activeUserId, setactiveID] = useState("");
+  const [roomCode, setroomCode] = useState("");
+  const [roomName, setroomName] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
   const socketRef = useRef<WebSocket | null>(null);
 
-  // ── Fix 1: Read activeUserId INSIDE component so it's always fresh ──────────
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const activeUserId = currentUser.user_id || currentUser.id || "";
-
-  const getHistory = async () => {
-    const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-    const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "—";
-
-    const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCode}`, {
+  const getHistory = async (roomCodeVal:string,userIdVal:string) => {
+  
+    const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCodeVal}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -58,19 +56,16 @@ export default function Room() {
     });
 
     if (response.ok) {
-      const current = JSON.parse(localStorage.getItem("user") || "{}");
-      // Fix 2: use user_id not id
-      const myId = current?.user_id || current?.id || "";
       const data = await response.json();
+      
+      console.log("(getHistory)Current room code: "+roomCodeVal);
+      console.log("(getHistory)Active user id: "+userIdVal);
 
       const formatted = data.history.map((msg: any, index: any) => ({
         id: msg.id ? msg.id.toString() : index.toString(),
-        // Fix 3: backend history returns "Senderid" (no underscore, capital S)
         sender_id: msg.Senderid || msg.sender_id || "unknown",
-        sender_name: myId === (msg.Senderid || msg.sender_id) ? "You" : msg.Username,
-        // Fix 4: backend history returns lowercase "message"
-        message: msg.message || msg.Message || "",
-        // Fix 5: backend history returns lowercase "timestamp"  
+        sender_name: userIdVal === (msg.Senderid || msg.sender_id) ? "You" : msg.Username,
+        message: msg.message || msg.Message || "", 
         timestamp: new Date(msg.Timestamp || msg.timestamp).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -79,22 +74,37 @@ export default function Room() {
 
       setMessages(formatted);
     }
+    else{
+      setMessages([]);
+    }
   };
 
   useEffect(() => {
-    getHistory();
 
-    const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-    const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "";
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
+
+  const roomCodeVal = currentRoom?.group_id || currentRoom?.Groupid || "";
+  const userIdVal = currentUser.user_id || currentUser.id || "";
+  const roomName = currentRoom?.room_name || currentRoom.Groupname || "Room" 
+  
+  setactiveID(userIdVal);
+  setroomCode(roomCodeVal);
+  setroomName(roomName);
+  
+  getHistory(roomCodeVal,userIdVal);
     const token = localStorage.getItem("access_token");
+    
+    console.log("Token:"+JSON.stringify(token));
 
-    if (!roomCode || !token) return;
+    if (!roomCodeVal || !token) return;
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const rawDomain = VITE_ROUTE_API_KEY.replace(/^https?:\/\//, "");
-    const wsUrl = `${protocol}//${rawDomain}/api/chat/ws/${roomCode}?token=${token}`;
+    const wsUrl = `${protocol}//${rawDomain}/chat/ws/${roomCodeVal}?token=${token}`;
 
+    console.log("Websocket url:"+wsUrl.toString());
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
@@ -102,15 +112,11 @@ export default function Room() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      const current = JSON.parse(localStorage.getItem("user") || "{}");
-      const myId = current?.user_id || current?.id || "";
 
       const incomingMessage: Message = {
         id: data.id?.toString() || Date.now().toString(),
-        // Fix 6: broadcast sends lowercase "sender_id"
         sender_id: data.sender_id,
-        sender_name: data.sender_id === myId ? "You" : data.Username,
-        // Fix 7: broadcast sends lowercase "message"
+        sender_name: data.sender_id === userIdVal ? "You" : data.Username,
         message: data.message,
         timestamp: new Date(data.timestamp).toLocaleTimeString([], {
           hour: "2-digit",
@@ -157,10 +163,6 @@ export default function Room() {
     }
   };
 
-  const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-  const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "—";
-  const roomName = currentRoom?.room_name || currentRoom?.Groupname || "Room";
-
   return (
     <>
       <PageMeta title="Room | Group Expense Tracker" description="Group chatroom." />
@@ -193,7 +195,6 @@ export default function Room() {
           </div>
 
           {messages.map((msg, idx) => {
-            // Fix 8: compare against activeUserId which now uses user_id
             const isMine = msg.sender_id === activeUserId;
             const prevMsg = messages[idx - 1];
             const sameSender = prevMsg && prevMsg.sender_id === msg.sender_id;

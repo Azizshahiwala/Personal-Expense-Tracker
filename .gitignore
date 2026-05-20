@@ -6,6 +6,7 @@ node_modules/
 *.rar
 Group-Expense-Tracker-Docs.md
 Group-Expense-Tracker-Documentation.docx
+prompt.md 
 
 /public/images/user/
 src/Backend/__pycache__/
