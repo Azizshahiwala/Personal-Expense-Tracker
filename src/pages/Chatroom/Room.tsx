@@ -8,6 +8,7 @@ interface Message {
   sender_name: string;
   message: string;
   timestamp: string;
+  isMine: boolean;
 }
 
 // ─── Avatar initials helper ───────────────────────────────────────────────────
@@ -36,19 +37,18 @@ export default function Room() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isConnected, setIsConnected] = useState(false);
+  
+  const activeUserId = useRef("");
+  const [roomCode, setroomCode] = useState("");
+  const [roomName, setroomName] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
   const socketRef = useRef<WebSocket | null>(null);
 
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const activeUserId = currentUser.user_id || currentUser.id || "";
-
-  const getHistory = async () => {
-    const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-    const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "—";
-
-    const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCode}`, {
+  const getHistory = async (roomCodeVal:string,userIdVal:string) => {
+    
+    const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCodeVal}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -57,38 +57,52 @@ export default function Room() {
     });
 
     if (response.ok) {
-      const current = JSON.parse(localStorage.getItem("user") || "{}");
-      const myId = current?.user_id || current?.id || "";
       const data = await response.json();
-
-      const formatted = data.history.map((msg: any, index: any) => ({
+        activeUserId.current = userIdVal;
+        const formatted = data.history.map((msg: any, index: any) => (
+        {
         id: msg.id ? msg.id.toString() : index.toString(),
         sender_id: msg.Senderid || msg.sender_id || "unknown",
-        sender_name: myId === (msg.Senderid || msg.sender_id) ? "You" : msg.Username,
+        sender_name: userIdVal === (msg.Senderid || msg.sender_id) ? "You" : msg.Username,
         message: msg.message || msg.Message || "", 
         timestamp: new Date(msg.Timestamp || msg.timestamp).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
+        isMine:((msg.Senderid || msg.sender_id) == activeUserId)
       }));
 
       setMessages(formatted);
+      return;
+    }
+    else{
+      setMessages([]);
     }
   };
 
   useEffect(() => {
-    getHistory();
 
-    const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-    const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "";
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
+
+  const roomCodeVal = currentRoom?.group_id || currentRoom?.Groupid || "";
+  const userIdVal = currentUser.user_id || currentUser.id || "";
+  const roomName = currentRoom?.room_name || currentRoom.Groupname || "Room" 
+  
+  setroomCode(roomCodeVal);
+  setroomName(roomName);
+  
+  getHistory(roomCodeVal,userIdVal);
     const token = localStorage.getItem("access_token");
+    activeUserId.current = userIdVal;
+    console.log("Token:"+JSON.stringify(token));
 
-    if (!roomCode || !token) return;
+    if (!roomCodeVal || !token) return;
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const rawDomain = VITE_ROUTE_API_KEY.replace(/^https?:\/\//, "");
-    const wsUrl = `${protocol}//${rawDomain}/chat/ws/${roomCode}?token=${token}`;
+    const wsUrl = `${protocol}//${rawDomain}/chat/ws/${roomCodeVal}?token=${token}`;
 
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
@@ -97,20 +111,17 @@ export default function Room() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      const current = JSON.parse(localStorage.getItem("user") || "{}");
-      const myId = current?.user_id || current?.id || "";
-
+      
       const incomingMessage: Message = {
         id: data.id?.toString() || Date.now().toString(),
-        // Fix 6: broadcast sends lowercase "sender_id"
         sender_id: data.sender_id,
-        sender_name: data.sender_id === myId ? "You" : data.Username,
-        // Fix 7: broadcast sends lowercase "message"
+        sender_name: data.sender_id === userIdVal ? "You" : data.Username,
         message: data.message,
         timestamp: new Date(data.timestamp).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
+        isMine:(data.sender_id == activeUserId)
       };
 
       setMessages((prev) => [...prev, incomingMessage]);
@@ -129,7 +140,6 @@ export default function Room() {
     };
   }, []);
 
-  // Auto-scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -151,10 +161,6 @@ export default function Room() {
       sendMessage();
     }
   };
-
-  const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-  const roomCode = currentRoom?.group_id || currentRoom?.Groupid || "—";
-  const roomName = currentRoom?.room_name || currentRoom?.Groupname || "Room";
 
   return (
     <>
@@ -188,8 +194,7 @@ export default function Room() {
           </div>
 
           {messages.map((msg, idx) => {
-            // Fix 8: compare against activeUserId which now uses user_id
-            const isMine = msg.sender_id === activeUserId;
+            const isMine = msg.isMine;
             const prevMsg = messages[idx - 1];
             const sameSender = prevMsg && prevMsg.sender_id === msg.sender_id;
             const color = getAvatarColor(msg.sender_name);
@@ -239,7 +244,6 @@ export default function Room() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── Input bar ────────────────────────────────────────────────────── */}
         <div style={styles.inputBar}>
           <div style={styles.inputWrap}>
             <input
@@ -277,25 +281,14 @@ export default function Room() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
   wrapper: {
-    display: "flex",
-    flexDirection: "column",
-    height: "calc(100vh - 180px)",
-    minHeight: "500px",
-    borderRadius: "20px",
-    overflow: "hidden",
-    border: "1px solid #D4C9A8",
-    background: "linear-gradient(160deg, #F7F4ED 0%, #EFF0E8 100%)",
-    boxShadow: "0 4px 24px rgba(45, 60, 30, 0.08)",
-    fontFamily: "'Georgia', 'Times New Roman', serif",
+    display: "flex", flexDirection: "column", height: "calc(100vh - 180px)",
+    minHeight: "500px", borderRadius: "20px", overflow: "hidden",
+    border: "1px solid #D4C9A8", background: "linear-gradient(160deg, #F7F4ED 0%, #EFF0E8 100%)",
+    boxShadow: "0 4px 24px rgba(45, 60, 30, 0.08)", fontFamily: "'Georgia', 'Times New Roman', serif",
   },
   header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "16px 24px",
-    background: "#2D5A27",
-    borderBottom: "1px solid #3B7030",
-    flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "16px 24px", background: "#2D5A27", borderBottom: "1px solid #3B7030", flexShrink: 0,
   },
   headerLeft: { display: "flex", alignItems: "center", gap: "12px" },
   leafIcon: { fontSize: "22px", lineHeight: 1 },
@@ -304,13 +297,9 @@ const styles: Record<string, React.CSSProperties> = {
   dot: { width: "8px", height: "8px", borderRadius: "50%" },
   connStatus: { fontSize: "12px", color: "#8FC87A", fontFamily: "system-ui, sans-serif" },
   msgArea: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "20px 20px 12px",
-    display: "flex",
-    flexDirection: "column",
-    scrollbarWidth: "thin",
-    scrollbarColor: "#C8BFA0 transparent",
+    flex: 1, overflowY: "auto", padding: "20px 20px 12px",
+    display: "flex", flexDirection: "column",
+    scrollbarWidth: "thin", scrollbarColor: "#C8BFA0 transparent",
   },
   dateDivider: { display: "flex", alignItems: "center", gap: "10px", margin: "8px 0 20px" },
   dateLine: { flex: 1, height: "1px", background: "#C8BFA0", opacity: 0.5 },
@@ -335,14 +324,12 @@ const styles: Record<string, React.CSSProperties> = {
   timestamp: { fontSize: "10px", color: "#9E9580", marginTop: "3px", fontFamily: "system-ui, sans-serif" },
   inputBar: { padding: "12px 20px 16px", background: "#F0EDE3", borderTop: "1px solid #D4C9A8", flexShrink: 0 },
   inputWrap: {
-    display: "flex", gap: "10px", alignItems: "center",
-    background: "#FFFFFF", border: "1.5px solid #C8BFA0",
-    borderRadius: "24px", padding: "6px 8px 6px 18px", transition: "border-color 0.2s",
+    display: "flex", gap: "10px", alignItems: "center", background: "#FFFFFF",
+    border: "1.5px solid #C8BFA0", borderRadius: "24px", padding: "6px 8px 6px 18px", transition: "border-color 0.2s",
   },
   input: {
     flex: 1, border: "none", outline: "none", background: "transparent",
-    fontSize: "14px", color: "#2C2B1E", fontFamily: "'Georgia', serif",
-    lineHeight: "1.5", padding: "4px 0",
+    fontSize: "14px", color: "#2C2B1E", fontFamily: "'Georgia', serif", lineHeight: "1.5", padding: "4px 0",
   },
   sendBtn: {
     width: "38px", height: "38px", borderRadius: "50%", border: "none",

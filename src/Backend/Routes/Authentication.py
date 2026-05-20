@@ -231,7 +231,8 @@ def login(user: loginSchema, db: Session = Depends(get_db)):
             "room_data":room_data
         }
 
-    except HTTPException:
+    except HTTPException as e:
+        print(e)
         raise
     except Exception as e:
         print(f"Login error: {e}")

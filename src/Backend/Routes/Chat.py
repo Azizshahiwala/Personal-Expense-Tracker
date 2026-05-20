@@ -40,6 +40,8 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
                 "Username":msg.first_name+" "+msg.last_name,
                 "pfp_path":msg.pfp_path
             })
+
+            
         print(response)
         return {"history":response}
     except HTTPException:
@@ -53,15 +55,15 @@ async def websocket_endpoint(websocket: WebSocket, groupcode: str, token: str = 
     # Decode JWT BEFORE accepting connection
     try:
         jwt_config = Config.getJWTConfig()
-        payload = jwt.decode(token, jwt_config['SECRET_KEY'], algorithms=[jwt_config['ALGORITHM']])
+        payload = jwt.decode(token, str(jwt_config['SECRET_KEY']), algorithms=[str(jwt_config['ALGORITHM'])])
         email = payload.get("sub")
         current_id = payload.get("unique_user_id")
 
         if email is None or current_id is None:
-            await websocket.close(code=1008)  # ← not HTTPException
+            await websocket.close(code=1008)  
             return
     except JWTError:
-        await websocket.close(code=1008)      # ← not HTTPException
+        await websocket.close(code=1008)    
         return
     
     
