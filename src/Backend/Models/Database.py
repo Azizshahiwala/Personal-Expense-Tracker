@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey,Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean,Float, ForeignKey,Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -116,17 +116,18 @@ class ChatMessages(Base):
     message = Column(Text, nullable=False)
 
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
-    
 
+    msgtype = Column(String(20),nullable=False,default="user")
+    
+    amtsent = Column(Float,nullable=True)
+    
 def create_tables():
     try:
-        #this function is used to bind the models to the database and create the tables if they don't exist.
         Base.metadata.create_all(bind=engine)
         print("Tables created successfully.")
     except Exception as e:
         print(f"Error creating tables: {e}")
 
-# 5. Dependency to get the DB session in your routes
 def get_db():
     db = SessionLocal()
     try:

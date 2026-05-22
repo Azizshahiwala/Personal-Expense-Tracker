@@ -18,10 +18,11 @@ import Members from "./pages/Users/Members";
 import AdminPanel from "./pages/Users/AdminPanel";
 import FinanceHistory from "./pages/Finance/History";
 import ExportReport from "./pages/Finance/ExportReport";
-import ExpensesSettlements from "./pages/Finance/ExpensesSettlements";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoomSelection from "./pages/Chatroom/RoomSelection";
 import { useAuth } from "./context/AuthContext";
+import Expenses from "./pages/Finance/Expenses";
+import Settlements from "./pages/Finance/Settlements";
 const RootRedirect = () => {
   const { user, isLoggedIn } = useAuth();
   
@@ -71,7 +72,8 @@ export default function App() {
             <Route path='/chatroom/room-selection' element={<RoomSelection/>}/>
 
             {/* Finance */}
-            <Route path="/finance/expensesandsettlements" element={<ExpensesSettlements />} />
+            <Route path="/finance/expenses" element={<Expenses />} />
+            <Route path="/finance/settlements" element={<Settlements />} />
             <Route path="/finance/report" element={<ExportReport />} />
             <Route path="/finance/history" element={<FinanceHistory />} />
 

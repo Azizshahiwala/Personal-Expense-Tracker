@@ -1,22 +1,25 @@
 import { useState, useEffect, useRef } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { FcInfo,FcEngineering } from "react-icons/fc";
+import { CiShoppingCart } from "react-icons/ci";
+type MessageType = "user" | "purchase" | "notification" | "system";
 
 interface Message {
   id: string;
+  type: MessageType; 
   sender_id: string;
   sender_name: string;
   message: string;
   timestamp: string;
-  isMine: boolean;
+  amtsent?: number;
+  metadata?: Record<string, any>; // for purchase/notification extras
 }
 
-// ─── Avatar initials helper ───────────────────────────────────────────────────
 function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
-// ─── Avatar color from name (nature palette) ─────────────────────────────────
 const AVATAR_COLORS = [
   { bg: "#2D5A27", text: "#D4E8B0" },
   { bg: "#3B6E52", text: "#C8E6D4" },
@@ -25,29 +28,94 @@ const AVATAR_COLORS = [
   { bg: "#6B4226", text: "#E8CBAA" },
   { bg: "#4A5E3A", text: "#D0E0BC" },
 ];
+
 function getAvatarColor(name: string) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-export default function Room() {
+// ─── Message type renderers ───────────────────────────────────────────────────
+function renderUserMessage(msg: Message, isMine: boolean, color: any) {
+  const prevMsg = null; // handled in parent
+  return (
+    <div style={{ maxWidth: "68%", display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start" }}>
+      {!isMine && (
+        <span style={styles.senderName}>{msg.sender_name}</span>
+      )}
+      <div style={{
+        ...styles.bubble,
+        ...(isMine ? styles.bubbleMine : styles.bubbleOther),
+        borderRadius: isMine ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
+      }}>
+        {msg.message}
+      </div>
+      <span style={styles.timestamp}>{msg.timestamp}</span>
+    </div>
+  );
+}
 
+function renderPurchaseMessage(msg: Message) {
+  return (
+    <div style={{ maxWidth: "72%", ...styles.purchaseCard }}>
+      <div style={styles.purchaseHeader}>
+        <span style={styles.purchaseIcon}><CiShoppingCart/></span>
+        <span style={styles.purchaseTitle}>Purchase</span>
+      </div>
+      <div style={styles.purchaseContent}>
+        <p style={styles.purchaseDesc}>{msg.message}</p>
+        {msg.metadata?.amount && (
+          <div style={styles.purchaseAmount}>₹{msg.metadata.amount}</div>
+        )}
+        {msg.metadata?.paidBy && (
+          <div style={styles.purchaseMeta}>Paid by: {msg.metadata.paidBy}</div>
+        )}
+      </div>
+      <span style={styles.timestamp}>{msg.timestamp}</span>
+    </div>
+  );
+}
+
+function renderNotificationMessage(msg: Message) {
+  return (
+    <div style={{ maxWidth: "72%", ...styles.notificationCard }}>
+      <div style={styles.notificationHeader}>
+        <span style={styles.notificationIcon}><FcInfo/></span>
+        <span style={styles.notificationTitle}>Notification</span>
+      </div>
+      <p style={styles.notificationContent}>{msg.message}</p>
+      <span style={styles.timestamp}>{msg.timestamp}</span>
+    </div>
+  );
+}
+
+function renderSystemMessage(msg: Message) {
+  return (
+    <div style={{ maxWidth: "72%", ...styles.systemCard }}>
+      <div style={styles.systemHeader}>
+        <span style={styles.systemIcon}><FcEngineering/></span>
+        <span style={styles.systemTitle}>System</span>
+      </div>
+      <p style={styles.systemContent}>{msg.message}</p>
+      <span style={styles.timestamp}>{msg.timestamp}</span>
+    </div>
+  );
+}
+
+export default function Room() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isConnected, setIsConnected] = useState(false);
-  
-  const activeUserId = useRef("");
   const [roomCode, setroomCode] = useState("");
   const [roomName, setroomName] = useState("");
+
+  const activeUserIdRef = useRef("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
   const socketRef = useRef<WebSocket | null>(null);
+  const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
 
-  const getHistory = async (roomCodeVal:string,userIdVal:string) => {
-    
+  const getHistory = async (roomCodeVal: string, userIdVal: string) => {
     const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCodeVal}`, {
       method: "GET",
       headers: {
@@ -58,44 +126,41 @@ export default function Room() {
 
     if (response.ok) {
       const data = await response.json();
-        activeUserId.current = userIdVal;
-        const formatted = data.history.map((msg: any, index: any) => (
-        {
-        id: msg.id ? msg.id.toString() : index.toString(),
-        sender_id: msg.Senderid || msg.sender_id || "unknown",
-        sender_name: userIdVal === (msg.Senderid || msg.sender_id) ? "You" : msg.Username,
-        message: msg.message || msg.Message || "", 
-        timestamp: new Date(msg.Timestamp || msg.timestamp).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        isMine:((msg.Senderid || msg.sender_id) == activeUserId)
-      }));
-
+      const formatted = data.history.map((msg: any, index: any) => {
+        const senderId = msg.Senderid || msg.sender_id || "unknown";
+        return {
+          id: msg.id ? msg.id.toString() : index.toString(),
+          type: (msg.Msgtype || "user") as MessageType, 
+          sender_id: senderId,
+          sender_name: senderId === userIdVal ? "You" : msg.Username,
+          message: msg.message || msg.Message || "",
+          amtsent: msg.Amtsent || undefined,
+          timestamp: new Date(msg.Timestamp || msg.timestamp).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+      });
       setMessages(formatted);
-      return;
-    }
-    else{
+    } else {
       setMessages([]);
     }
   };
 
   useEffect(() => {
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
 
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-
-  const roomCodeVal = currentRoom?.group_id || currentRoom?.Groupid || "";
-  const userIdVal = currentUser.user_id || currentUser.id || "";
-  const roomName = currentRoom?.room_name || currentRoom.Groupname || "Room" 
-  
-  setroomCode(roomCodeVal);
-  setroomName(roomName);
-  
-  getHistory(roomCodeVal,userIdVal);
+    const roomCodeVal = currentRoom?.group_id || currentRoom?.Groupid || "";
+    const userIdVal = currentUser.user_id || currentUser.id || "";
     const token = localStorage.getItem("access_token");
-    activeUserId.current = userIdVal;
-    console.log("Token:"+JSON.stringify(token));
+
+    activeUserIdRef.current = userIdVal;
+
+    setroomCode(roomCodeVal);
+    setroomName(currentRoom?.room_name || currentRoom?.Groupname || "Room");
+
+    getHistory(roomCodeVal, userIdVal);
 
     if (!roomCodeVal || !token) return;
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) return;
@@ -111,19 +176,18 @@ export default function Room() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      
       const incomingMessage: Message = {
         id: data.id?.toString() || Date.now().toString(),
+        type: (data.Msgtype || "user") as MessageType,
         sender_id: data.sender_id,
-        sender_name: data.sender_id === userIdVal ? "You" : data.Username,
+        sender_name: data.sender_id === activeUserIdRef.current ? "You" : data.Username,
         message: data.message,
+        amtsent: data.Amtsent || undefined,
         timestamp: new Date(data.timestamp).toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        isMine:(data.sender_id == activeUserId)
       };
-
       setMessages((prev) => [...prev, incomingMessage]);
     };
 
@@ -147,7 +211,6 @@ export default function Room() {
   const sendMessage = () => {
     const text = inputText.trim();
     if (text === "") return;
-
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(text);
       setInputText("");
@@ -162,6 +225,20 @@ export default function Room() {
     }
   };
 
+  // ─── Test button to add different message types (for demo) ───────────────────
+  const addTestMessage = (type: MessageType) => {
+    const testMsg: Message = {
+      id: Date.now().toString(),
+      type,
+      sender_id: "system",
+      sender_name: "System",
+      message: `This is a ${type} message example`,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      metadata: type === "purchase" ? { amount: 500, paidBy: "John" } : undefined,
+    };
+    setMessages((prev) => [...prev, testMsg]);
+  };
+
   return (
     <>
       <PageMeta title="Room | Group Expense Tracker" description="Group chatroom." />
@@ -169,7 +246,7 @@ export default function Room() {
 
       <div style={styles.wrapper}>
 
-        {/* ── Room header ─────────────────────────────────────────────────── */}
+        {/* Header */}
         <div style={styles.header}>
           <div style={styles.headerLeft}>
             <div style={styles.leafIcon}>🌿</div>
@@ -184,9 +261,8 @@ export default function Room() {
           </div>
         </div>
 
-        {/* ── Messages area ────────────────────────────────────────────────── */}
+        {/* Messages */}
         <div style={styles.msgArea}>
-
           <div style={styles.dateDivider}>
             <div style={styles.dateLine} />
             <span style={styles.dateText}>Today</span>
@@ -194,22 +270,24 @@ export default function Room() {
           </div>
 
           {messages.map((msg, idx) => {
-            const isMine = msg.isMine;
+            const isMine = msg.sender_id === activeUserIdRef.current;
+            const isUserMsg = msg.type === "user";
             const prevMsg = messages[idx - 1];
-            const sameSender = prevMsg && prevMsg.sender_id === msg.sender_id;
+            const sameSender = prevMsg && prevMsg.sender_id === msg.sender_id && isUserMsg;
             const color = getAvatarColor(msg.sender_name);
 
-            return (
-              <div
-                key={msg.id}
-                style={{
-                  ...styles.msgRow,
-                  justifyContent: isMine ? "flex-end" : "flex-start",
-                  marginTop: sameSender ? "4px" : "14px",
-                }}
-              >
-                {/* Avatar — left side only, first in group */}
-                {!isMine && (
+            // ─── User messages: left for others, left for "You" (not right) ───────
+            if (isUserMsg) {
+              return (
+                <div
+                  key={msg.id}
+                  style={{
+                    ...styles.msgRow,
+                    justifyContent: "flex-start", // ← always left
+                    marginTop: sameSender ? "4px" : "14px",
+                  }}
+                >
+                  {/* Avatar — left side only, first in group */}
                   <div style={{ width: "32px", flexShrink: 0, alignSelf: "flex-end", marginBottom: "2px" }}>
                     {!sameSender && (
                       <div style={{ ...styles.avatar, background: color.bg, color: color.text }}>
@@ -217,26 +295,26 @@ export default function Room() {
                       </div>
                     )}
                   </div>
-                )}
 
-                {/* Bubble */}
-                <div style={{ maxWidth: "68%", display: "flex", flexDirection: "column", alignItems: isMine ? "flex-end" : "flex-start" }}>
-                  {!isMine && !sameSender && (
-                    <span style={styles.senderName}>{msg.sender_name}</span>
-                  )}
-
-                  <div style={{
-                    ...styles.bubble,
-                    ...(isMine ? styles.bubbleMine : styles.bubbleOther),
-                    borderRadius: isMine ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
-                  }}>
-                    {msg.message}
-                  </div>
-
-                  <span style={styles.timestamp}>{msg.timestamp}</span>
+                  {renderUserMessage(msg, false, color)}
+                  <div style={{ width: "8px" }} />
                 </div>
+              );
+            }
 
-                {!isMine && <div style={{ width: "8px" }} />}
+            // ─── System messages: always right ──────────────────────────────────
+            return (
+              <div
+                key={msg.id}
+                style={{
+                  ...styles.msgRow,
+                  justifyContent: "flex-end", // ← always right
+                  marginTop: "14px",
+                }}
+              >
+                {msg.type === "purchase" && renderPurchaseMessage(msg)}
+                {msg.type === "notification" && renderNotificationMessage(msg)}
+                {msg.type === "system" && renderSystemMessage(msg)}
               </div>
             );
           })}
@@ -244,6 +322,7 @@ export default function Room() {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Input */}
         <div style={styles.inputBar}>
           <div style={styles.inputWrap}>
             <input
@@ -263,7 +342,6 @@ export default function Room() {
                 opacity: inputText.trim() ? 1 : 0.45,
                 cursor: inputText.trim() ? "pointer" : "not-allowed",
               }}
-              aria-label="Send message"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -271,6 +349,13 @@ export default function Room() {
             </button>
           </div>
           <div style={styles.inputHint}>Press Enter to send</div>
+
+          {/* Demo buttons — remove later */}
+          <div style={{ display: "flex", gap: "8px", marginTop: "12px", justifyContent: "center" }}>
+            <button onClick={() => addTestMessage("purchase")} style={styles.demoBtn}>+ Purchase</button>
+            <button onClick={() => addTestMessage("notification")} style={styles.demoBtn}>+ Notification</button>
+            <button onClick={() => addTestMessage("system")} style={styles.demoBtn}>+ System</button>
+          </div>
         </div>
 
       </div>
@@ -278,7 +363,6 @@ export default function Room() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
   wrapper: {
     display: "flex", flexDirection: "column", height: "calc(100vh - 180px)",
@@ -322,6 +406,55 @@ const styles: Record<string, React.CSSProperties> = {
   bubbleMine: { background: "#2D5A27", color: "#D8ECC0", boxShadow: "0 2px 8px rgba(45,90,39,0.18)" },
   bubbleOther: { background: "#FFFFFF", color: "#2C2B1E", border: "1px solid #E0D9C5", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" },
   timestamp: { fontSize: "10px", color: "#9E9580", marginTop: "3px", fontFamily: "system-ui, sans-serif" },
+
+  // ─── Purchase message styles ───────────────────────────────────────────────────
+  purchaseCard: {
+    background: "linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%)",
+    border: "1.5px solid #7CB342",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    boxShadow: "0 2px 8px rgba(124, 179, 66, 0.12)",
+  },
+  purchaseHeader: {
+    display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px",
+  },
+  purchaseIcon: { fontSize: "16px" },
+  purchaseTitle: { fontSize: "12px", fontWeight: 700, color: "#558B2F", textTransform: "uppercase" as const, letterSpacing: "0.04em" },
+  purchaseContent: { marginBottom: "8px" },
+  purchaseDesc: { fontSize: "14px", color: "#2C2B1E", margin: "0 0 8px 0", lineHeight: "1.5" },
+  purchaseAmount: { fontSize: "16px", fontWeight: 700, color: "#7CB342", marginBottom: "4px" },
+  purchaseMeta: { fontSize: "11px", color: "#558B2F", fontStyle: "italic" as const },
+
+  // ─── Notification message styles ───────────────────────────────────────────────
+  notificationCard: {
+    background: "linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%)",
+    border: "1.5px solid #5E35B1",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    boxShadow: "0 2px 8px rgba(94, 53, 177, 0.12)",
+  },
+  notificationHeader: {
+    display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px",
+  },
+  notificationIcon: { fontSize: "16px" },
+  notificationTitle: { fontSize: "12px", fontWeight: 700, color: "#3F51B5", textTransform: "uppercase" as const, letterSpacing: "0.04em" },
+  notificationContent: { fontSize: "14px", color: "#2C2B1E", margin: "0", lineHeight: "1.5" },
+
+  // ─── System message styles ─────────────────────────────────────────────────────
+  systemCard: {
+    background: "linear-gradient(135deg, #FCE4EC 0%, #FFF9C4 100%)",
+    border: "1.5px solid #F57F17",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    boxShadow: "0 2px 8px rgba(245, 127, 23, 0.12)",
+  },
+  systemHeader: {
+    display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px",
+  },
+  systemIcon: { fontSize: "16px" },
+  systemTitle: { fontSize: "12px", fontWeight: 700, color: "#E65100", textTransform: "uppercase" as const, letterSpacing: "0.04em" },
+  systemContent: { fontSize: "14px", color: "#2C2B1E", margin: "0", lineHeight: "1.5" },
+
   inputBar: { padding: "12px 20px 16px", background: "#F0EDE3", borderTop: "1px solid #D4C9A8", flexShrink: 0 },
   inputWrap: {
     display: "flex", gap: "10px", alignItems: "center", background: "#FFFFFF",
@@ -338,4 +471,11 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "background 0.15s, transform 0.1s",
   },
   inputHint: { fontSize: "11px", color: "#B0A88A", marginTop: "6px", textAlign: "center" as const, fontFamily: "system-ui, sans-serif" },
+  
+  // ─── Demo button styles (remove after testing) ────────────────────────────────
+  demoBtn: {
+    fontSize: "11px", padding: "6px 12px", borderRadius: "6px", border: "1px solid #C8BFA0",
+    background: "#F7F4ED", color: "#6B7A5A", cursor: "pointer", fontFamily: "system-ui, sans-serif",
+    transition: "background 0.15s",
+  },
 };

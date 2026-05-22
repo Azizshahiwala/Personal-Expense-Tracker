@@ -26,6 +26,8 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
             ChatMessages.message,
             ChatMessages.timestamp,
             ChatMessages.sender_id,
+            ChatMessages.msgtype,
+            ChatMessages.amtsent,
             Credentials.first_name,
             Credentials.last_name,
             UserProfile.pfp_path).join(Credentials, ChatMessages.sender_id == Credentials.unique_user_id).join(UserProfile,ChatMessages.sender_id == UserProfile.unique_user_id).filter(ChatMessages.group_id == roomcode).order_by(ChatMessages.timestamp.asc()).all() 
@@ -39,7 +41,9 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
                 "Message":msg.message,
                 "Timestamp":msg.timestamp,
                 "Username":msg.first_name+" "+msg.last_name,
-                "pfp_path":msg.pfp_path
+                "pfp_path":msg.pfp_path,
+                "Msgtype":msg.msgtype,
+                "Amtsent":msg.amtsent
             })
 
             
@@ -53,7 +57,7 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
     
 @router.websocket("/ws/{groupcode}")
 async def websocket_endpoint(websocket: WebSocket, groupcode: str, token: str = Query(...), db: Session = Depends(get_db)):
-    # Decode JWT BEFORE accepting connection
+    
     try:
         jwt_config = Config.getJWTConfig()
         payload = jwt.decode(token, str(jwt_config['SECRET_KEY']), algorithms=[str(jwt_config['ALGORITHM'])])
