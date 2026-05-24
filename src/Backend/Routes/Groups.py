@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Request,Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, field_validator
-import re, os, shutil, uuid,random,string
+import random,string
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 
 #We import the database i am going to use, with a session function.
-from Models.Database import Group,GroupMember,Credentials,UserProfile, get_db
+from Models.Database import Group,GroupMember,Credentials,UserProfile,ChatMessages, get_db
 from Routes.Authentication import get_current_user
 
 router = APIRouter(prefix="/api/groups", tags=["Groups"])
@@ -25,7 +25,7 @@ class createRoomSchema(BaseModel):
     created_by_uuid: str
 
 class leaveRoomSchema(BaseModel):
-    groupname: str
+    group_id: str
     target_uuid: str
     role: str
 
@@ -126,14 +126,33 @@ def joinRoom(room: joinRoomSchema, db: Session = Depends(get_db), current_user: 
         db.commit()
         db.refresh(member)
 
+        #Get username:
+        
+        username = db.query(Credentials).filter(Credentials.unique_user_id == room.joining_by_uuid).first()
+
+        notif = None
+
+        if username and username:
+            print("Username found while leaving:",username)
+            #Add a notification:
+            notif = ChatMessages(group_id=member.group_id,
+                             sender_id=room.joining_by_uuid,
+                             message=f"{username.first_name} {username.last_name} has joined the room. Welcome!",
+                             timestamp=datetime.now(),
+                             msgtype="notification")
+            db.add(notif)
+            db.commit()
+            db.refresh(notif)
+
         return {
             "group_id": member.group_id,
             "room_code": record.invitecode,
             "role": member.is_admin
         }
 
-    except HTTPException:
+    except HTTPException as e:
         db.rollback()
+        print(e)
         raise
     except Exception as e:
         db.rollback()
@@ -153,9 +172,30 @@ def leaveRoom(room: leaveRoomSchema, db: Session = Depends(get_db),current_user:
         if record:
             print("Record admin: ",record.is_admin)
             return {"adminError":"Admins cannot leave the room. Dissolve the room instead."}
+
+        #Get username:
+        username = db.query(Credentials).filter(Credentials.unique_user_id == room.target_uuid).first()
+
+        notif = None
+        print("--------------------------------")
+        if username:
+            print("Username found while leaving:",username)
+
+            #Add a notification:
+            notif = ChatMessages(group_id=room.group_id,
+                             sender_id=room.target_uuid,
+                             message=f"{username.first_name} {username.last_name} has left the room.",
+                             timestamp=datetime.now(),
+                             msgtype="notification")
             
-        user = db.query(GroupMember).filter(GroupMember.user_id == room.target_uuid,GroupMember.group_id == room.groupname).delete()
-        
+            db.add(notif)
+            db.commit()
+            db.refresh(notif)
+        else:
+            print("Username found while leaving:",username)
+        #Delete
+        user = db.query(GroupMember).filter(GroupMember.user_id == room.target_uuid, GroupMember.group_id == room.group_id).delete()
+
         db.commit()
 
         return {"message":"user removed from the room."}
@@ -181,7 +221,8 @@ def dissolveRoom(room: dissolveRoomSchema, db: Session = Depends(get_db), curren
         
         if not admin_record:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can dissolve the room.")
-            
+        
+
         # 3. Clean up all members from the group first to prevent Foreign Key constraint blocks
         db.query(GroupMember).filter(GroupMember.group_id == room.groupcode).delete()
         
@@ -241,6 +282,7 @@ def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user:
             Credentials.first_name,
             Credentials.last_name,
             Credentials.email,
+            Credentials.unique_user_id,
             UserProfile.pfp_path
         ).join(
             Credentials, GroupMember.user_id == Credentials.unique_user_id
@@ -249,7 +291,7 @@ def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user:
         ).filter(
             GroupMember.group_id == groupcode
         ).all()
-
+        
         # 3. Construct the response
         member_data = []
         for member in members_data:
@@ -258,6 +300,7 @@ def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user:
                 "last_name": member.last_name,
                 "email": member.email,
                 "role": member.is_admin,
+                "user_id":member.unique_user_id,
                 "pfp_path": member.pfp_path
             })
 

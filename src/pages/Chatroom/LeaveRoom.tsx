@@ -21,7 +21,7 @@ export default function LeaveRoom() {
       const data = localStorage.getItem('user');
       const userdata = data ? JSON.parse(data) : null;
     
-      console.log("Processed: ",processed);
+      console.log("Processed: ",JSON.stringify(processed));
       // TODO: Call API to leave room
       const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/leave`, {
         method: 'POST',
@@ -29,13 +29,12 @@ export default function LeaveRoom() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
-        body: JSON.stringify({groupname: processed.group_id , target_uuid:userdata.id, role: processed.role})
+        body: JSON.stringify({group_id: processed.Groupid , target_uuid:userdata.id, role: processed.role})
       });
 
       if (response.ok) {
         const jsonstr = await response.json();
 
-        //This block checks if admin attempted to leave the room.
         if(jsonstr.adminError){
          seterrorMsg(jsonstr.adminError); 
          return;

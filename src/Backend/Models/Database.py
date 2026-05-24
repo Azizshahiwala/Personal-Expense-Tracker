@@ -85,6 +85,7 @@ class UserProfile(Base):
 
     #UserMetaCard and /header/UserDropdown.tsx
     pfp_path = Column(String(255),default="/images/user/default.jpg",nullable=False)
+
 #This table is for creation of groups
 class Group(Base):
     __tablename__ = "Group"
@@ -101,6 +102,7 @@ class GroupMember(Base):
     id = Column(Integer, primary_key=True,autoincrement=True)
     group_id = Column(String(10), ForeignKey("Group.invitecode"))
     user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))
+    member_budget=Column(Float,nullable=True)
     is_admin = Column(String(20), default="member")  # "admin" or "member"
 
 class ChatMessages(Base):
@@ -119,8 +121,28 @@ class ChatMessages(Base):
 
     msgtype = Column(String(20),nullable=False,default="user")
     
-    amtsent = Column(Float,nullable=True)
+    amtspent = Column(Float,nullable=True)
     
+class Expenses(Base):
+    __tablename__ = "Expenses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    expense_id = Column(UUID(as_uuid=True),nullable=False,index=True) #This id is used to group when user selects contributed purchase option. 
+    user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id", ondelete="CASCADE"), nullable=False) #This is used to show, who this purchase belongs to
+    group_id = Column(String(10), ForeignKey("Group.invitecode", ondelete="CASCADE"), nullable=False, index=True)
+    chat_msg_id = Column(Integer, ForeignKey("Chatmessages.id", ondelete="CASCADE"), nullable=True)
+    contributor = Column(String(100),nullable=False)
+    individual_amt = Column(Float,nullable=False,default=0.0)
+    is_solo = Column(Boolean,nullable=False,default=True)
+    can_split_equal = Column(Boolean,nullable=True,default=False)
+    item_name = Column(String(255),nullable=False)
+    unit = Column(String(20),nullable=False)
+
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+class Settlements(Base):
+    __tablename__ = "Settlements"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
 def create_tables():
     try:
         Base.metadata.create_all(bind=engine)

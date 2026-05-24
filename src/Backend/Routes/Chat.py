@@ -27,7 +27,7 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
             ChatMessages.timestamp,
             ChatMessages.sender_id,
             ChatMessages.msgtype,
-            ChatMessages.amtsent,
+            ChatMessages.amtspent,
             Credentials.first_name,
             Credentials.last_name,
             UserProfile.pfp_path).join(Credentials, ChatMessages.sender_id == Credentials.unique_user_id).join(UserProfile,ChatMessages.sender_id == UserProfile.unique_user_id).filter(ChatMessages.group_id == roomcode).order_by(ChatMessages.timestamp.asc()).all() 
@@ -43,7 +43,7 @@ def gethistory(roomcode : str, current_user: dict = Depends(get_current_user), d
                 "Username":msg.first_name+" "+msg.last_name,
                 "pfp_path":msg.pfp_path,
                 "Msgtype":msg.msgtype,
-                "Amtsent":msg.amtsent
+                "Amtspent":msg.amtspent
             })
 
             

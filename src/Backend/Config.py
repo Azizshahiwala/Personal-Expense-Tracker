@@ -47,6 +47,7 @@ class Config:
             cls.SECRET_KEY = os.getenv("SECRET_KEY")
             cls.ALGORITHM = os.getenv("ALGORITHM")
             cls.ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+            cls.WILDCARD = "*"
             print("Configuration loaded successfully.")
             
         except Exception as e:
@@ -67,7 +68,8 @@ class Config:
             cls.LOCALHOST,
             cls.VITE_WEB_PATH,
             cls.VITE_PY_PATH,
-            cls.VITE_ROUTE_API_KEY
+            cls.VITE_ROUTE_API_KEY,
+            cls.WILDCARD
         ]
     @classmethod
     def getJWTConfig(cls):

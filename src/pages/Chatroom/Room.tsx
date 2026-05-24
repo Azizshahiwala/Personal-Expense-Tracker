@@ -134,7 +134,7 @@ export default function Room() {
           sender_id: senderId,
           sender_name: senderId === userIdVal ? "You" : msg.Username,
           message: msg.message || msg.Message || "",
-          amtsent: msg.Amtsent || undefined,
+          amtspent: msg.Amtspent || undefined,
           timestamp: new Date(msg.Timestamp || msg.timestamp).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",

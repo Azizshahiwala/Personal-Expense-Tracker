@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-
 export interface User {
   id: string;
   name: string;
@@ -70,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
     updateAdminStatus(); 
+    
   };
 
   const logout = () => {
