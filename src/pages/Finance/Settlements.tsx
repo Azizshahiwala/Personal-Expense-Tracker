@@ -18,6 +18,9 @@ export default function Settlements() {
           <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">
             Manage settlements and keep your group balances up to date.
           </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">
+            This feature will be released after version 1.
+          </p>
         </div>
       </div>
     </div>

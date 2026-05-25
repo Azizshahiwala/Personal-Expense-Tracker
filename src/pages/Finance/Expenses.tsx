@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import { CiSquareMinus,CiSquarePlus,CiSquareChevUp } from "react-icons/ci";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,7 +33,6 @@ interface GroupMember {
 
 const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
 const UNIT_OPTIONS = ["kg", "g", "L", "ml", "pcs", "pack", "dozen", "box", "other"];
-const MOCK_BUDGET = 5000;
 
 // ─── Helper ────────────────────────────────────────────────────────────────────
 
@@ -199,7 +199,7 @@ function AddExpenseModal({
               {/* Total */}
               <div style={mStyles.fieldRow}>
                 <label style={mStyles.label}>Total (₹)</label>
-                <input type="number" placeholder="0.00" value={total}
+                <input type="number" disabled placeholder="0.00" value={total}
                   onChange={(e) => setTotal(e.target.value)} style={mStyles.textInput} />
               </div>
 
@@ -275,7 +275,122 @@ function AddExpenseModal({
     </div>
   );
 }
+// ─── Update Budget Modal ────────────────────────────────────────────────────────
 
+function UpdateBudgetModal({
+  currentBudget,
+  onClose,
+  onUpdate,
+}: {
+  currentBudget: number;
+  onClose: () => void;
+  onUpdate: (newBudget: number, hasSetBudget: boolean) => void;
+}) {
+  const [budgetInput, setBudgetInput] = useState(currentBudget.toString());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    const parsed = parseFloat(budgetInput);
+    if (!budgetInput || isNaN(parsed) || parsed <= 0) {
+      setError("Please enter a valid amount.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${VITE_ROUTE_API_KEY}/finance/updateBudget
+        `, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ budget: parsed }),
+      });
+      if (!res.ok) {
+        setError("Failed to update budget.");
+        return;
+      }
+      const data = await res.json();
+      console.log("Data:",data);
+      onUpdate(data.member_budget, data.has_set_budget);
+      onClose();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div style={mStyles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...mStyles.modal, maxWidth: "380px" }}>
+
+        {/* Header */}
+        <div style={mStyles.mHeader}>
+          <span style={mStyles.mTitle}>Update Budget</span>
+          <button onClick={onClose} style={mStyles.closeBtn}>✕</button>
+        </div>
+
+        <div style={mStyles.mBody}>
+
+          {/* Current budget display */}
+          <div style={budgetStyles.currentRow}>
+            <span style={budgetStyles.currentLabel}>Current budget</span>
+            <span style={budgetStyles.currentVal}>
+              ₹{currentBudget.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+
+          {/* New budget input */}
+          <div style={mStyles.fieldRow}>
+            <label style={mStyles.label}>New Budget (₹)</label>
+            <label style={mStyles.label}>Note: You can only set new budget again when you are left with ₹100 in balance.</label>
+            <input
+              type="number"
+              placeholder="e.g. 5000"
+              value={budgetInput}
+              onChange={(e) => { setBudgetInput(e.target.value); setError(null); }}
+              style={mStyles.textInput}
+              autoFocus
+            />
+          </div>
+
+          {/* Inline error */}
+          {error && <span style={budgetStyles.errorText}>{error}</span>}
+
+        </div>
+
+        {/* Footer */}
+        <div style={mStyles.mFooter}>
+          <button onClick={onClose} style={mStyles.cancelBtn}>Cancel</button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{ ...mStyles.submitBtn, opacity: loading ? 0.6 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+          >
+            {loading ? "Saving…" : "Update"}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+// Extra styles specific to this modal
+const budgetStyles: Record<string, React.CSSProperties> = {
+  currentRow: {
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    background: "#F0EDE3", border: "1px solid #D4C9A8",
+    borderRadius: "10px", padding: "12px 16px",
+  },
+  currentLabel: { fontSize: "12px", color: "#6B7A5A", fontFamily: "system-ui", fontWeight: 600 },
+  currentVal:   { fontSize: "16px", fontWeight: 700, color: "#2D5A27", fontFamily: "'Courier New', monospace" },
+  errorText:    { fontSize: "12px", color: "#C0392B", fontFamily: "system-ui" },
+};
 // ─── Remove Expense Modal ──────────────────────────────────────────────────────
 
 function RemoveExpenseModal({
@@ -384,8 +499,10 @@ export default function Expenses() {
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [showRemove, setShowRemove] = useState(false);
+  const [showBudget, setShowBudget] = useState(false);
   const [groupmembers, setGroupmembers] = useState<GroupMember[]>([]);
-
+  const [budget, setBudget] = useState<number>(0);
+  const [hasSetBudget, setHasSetBudget] = useState<boolean>(false);
 const Rdata = JSON.parse(localStorage.getItem("currentRoom") || "{}");
 const groupId = Rdata.group_id || Rdata.Groupid;
 
@@ -445,21 +562,19 @@ const fetchMyExpenses = async () => {
       }));
 
       setExpenses(formatted);
+      setBudget(data.member_budget);
+      setHasSetBudget(data.has_set_budget ?? false);
       }
     } catch (err) {
       console.error("Failed to fetch expenses:", err);
     }
   };
-  // Fetch this user's personal expense history on mount
   useEffect(() => {
     fetchMyExpenses();
     fetchGroupMembers();
   }, []);
 
   
-
-  // After user fills Add modal → append to local list
-  // TODO: also POST to backend here when endpoint is ready
   const handleAdd = async (entry: ExpenseEntry) => {
     try {
       const res = await fetch(`${VITE_ROUTE_API_KEY}/finance/setEntry`, {
@@ -479,17 +594,14 @@ const fetchMyExpenses = async () => {
       });
 
       if (!res.ok) return;
-      const data = await res.json();
-      console.log("Searching for id:"+entry.id);
       setExpenses((prev) => [entry, ...prev]);
     } catch (err) {
       console.error("Failed to fetch expenses:", err);
     }
   };
 
-  // Mark entry as removed locally
-  // TODO: also call DELETE endpoint here when ready
   const handleRemove = async (id: string) => {
+    console.log("ID:",id);
   try {
     const res = await fetch(`${VITE_ROUTE_API_KEY}/finance/delEntry/${id}`, {
       method: "DELETE",
@@ -515,34 +627,42 @@ const fetchMyExpenses = async () => {
         <div style={pageStyles.budgetCard}>
           <div style={pageStyles.budgetItem}>
             <span style={pageStyles.budgetLabel}>Your budget</span>
-            <span style={pageStyles.budgetVal}>₹{MOCK_BUDGET.toLocaleString()}</span>
+            <span style={pageStyles.budgetVal}>₹{budget.toLocaleString()}</span>
           </div>
           <div style={pageStyles.budgetDivider} />
           <div style={pageStyles.budgetItem}>
             <span style={pageStyles.budgetLabel}>You spent</span>
-            <span style={{ ...pageStyles.budgetVal, color: totalSpent > MOCK_BUDGET ? "#C0392B" : "#D4E8B0" }}>
+            <span style={{ ...pageStyles.budgetVal, color: totalSpent > budget ? "#C0392B" : "#D4E8B0" }}>
               ₹{totalSpent.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </span>
           </div>
           <div style={pageStyles.budgetDivider} />
           <div style={pageStyles.budgetItem}>
             <span style={pageStyles.budgetLabel}>Remaining</span>
-            <span style={{ ...pageStyles.budgetVal, color: MOCK_BUDGET - totalSpent < 0 ? "#C0392B" : "#D4E8B0" }}>
-              ₹{(MOCK_BUDGET - totalSpent).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            <span style={{ ...pageStyles.budgetVal, color: budget - totalSpent < 0 ? "#C0392B" : "#D4E8B0" }}>
+              ₹{(budget - totalSpent).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
         {/* Action buttons */}
-        <div style={pageStyles.actionRow}>
+
+         
+        { (hasSetBudget)?(<div style={pageStyles.actionRow}>
+          
           <button onClick={() => setShowAdd(true)} style={pageStyles.addExpBtn}>
-            <span style={pageStyles.btnIcon}>＋</span> Add Expense
+            <span style={pageStyles.btnIcon}><CiSquarePlus/></span> Add Expense
           </button>
           <button onClick={() => setShowRemove(true)} style={pageStyles.removeExpBtn}>
-            <span style={pageStyles.btnIcon}>－</span> Remove Expense
+            <span style={pageStyles.btnIcon}><CiSquareMinus/></span> Remove Expense
           </button>
-        </div>
-
+          
+        </div>)
+        :(<div style={pageStyles.actionRow}>
+          <button onClick={() => setShowBudget(true)} style={pageStyles.UpdatebudgetBtn}>
+            <span style={pageStyles.btnIcon}><CiSquareChevUp /></span> Update Budget
+          </button>
+        </div>)}
         {/* Info note */}
         <p style={pageStyles.note}>
           Note: Adding or removing an expense is recorded and notified to all group members.
@@ -565,6 +685,7 @@ const fetchMyExpenses = async () => {
       </div>
 
       {/* Modals */}
+     {} 
       {showAdd && (
         <AddExpenseModal
           onClose={() => setShowAdd(false)}
@@ -579,6 +700,16 @@ const fetchMyExpenses = async () => {
           onRemove={handleRemove}
         />
       )}
+      {showBudget && (
+  <UpdateBudgetModal
+    currentBudget={budget}
+    onClose={() => setShowBudget(false)}
+    onUpdate={(newBudget, hassetbudget) => {
+      setBudget(newBudget); 
+      setHasSetBudget(hassetbudget);
+    }}
+  />
+)}
     </>
   );
 }
@@ -594,6 +725,7 @@ const pageStyles: Record<string, React.CSSProperties> = {
   actionRow: { display: "flex", gap: "12px" },
   addExpBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#2D5A27", color: "#D4E8B0", border: "none", borderRadius: "12px", padding: "14px 20px", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "'Georgia', serif", boxShadow: "0 2px 10px rgba(45,90,39,0.2)" },
   removeExpBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#FFFFFF", color: "#C0392B", border: "1.5px solid #C0392B", borderRadius: "12px", padding: "14px 20px", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "'Georgia', serif" },
+  UpdatebudgetBtn: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#001eff", color: "#D4E8B0", border: "none", borderRadius: "12px", padding: "14px 20px", fontSize: "14px", fontWeight: 600, cursor: "pointer", fontFamily: "'Georgia', serif", boxShadow: "0 2px 10px rgba(45,90,39,0.2)" },
   btnIcon: { fontSize: "18px", lineHeight: 1 },
   note: { fontSize: "12px", color: "#8A7E65", background: "#F7F4ED", border: "1px solid #D4C9A8", borderRadius: "8px", padding: "10px 14px", margin: "0", fontFamily: "system-ui, sans-serif", lineHeight: "1.5" },
   historyHeader: { display: "flex", alignItems: "baseline", gap: "10px", marginTop: "4px" },
@@ -646,7 +778,7 @@ const mStyles: Record<string, React.CSSProperties> = {
   dropRow: { display: "flex", gap: "8px", alignItems: "center" },
   select: { flex: 1, padding: "9px 12px", border: "1.5px solid #C8BFA0", borderRadius: "8px", background: "#FFFFFF", fontSize: "13px", color: "#2C2B1E", fontFamily: "system-ui", outline: "none", cursor: "pointer" },
   textInput: { width: "100%", padding: "9px 12px", border: "1.5px solid #C8BFA0", borderRadius: "8px", background: "#FFFFFF", fontSize: "13px", color: "#2C2B1E", fontFamily: "system-ui", outline: "none", boxSizing: "border-box" },
-  addBtn: { padding: "9px 16px", background: "#2D5A27", color: "#D4E8B0", border: "none", borderRadius: "8px", fontSize: "13px", cursor: "pointer", fontFamily: "system-ui", fontWeight: 600, whiteSpace: "nowrap" },
+  addBtn: { padding: "9px 16px", background: "#2D5A47", color: "#D4E8B0", border: "none", borderRadius: "8px", fontSize: "13px", cursor: "pointer", fontFamily: "system-ui", fontWeight: 600, whiteSpace: "nowrap" },
   contribTable: { background: "#FFFFFF", border: "1px solid #D4C9A8", borderRadius: "10px", overflow: "hidden" },
   contribHeaderRow: { display: "flex", padding: "8px 12px", background: "#F0EDE3", borderBottom: "1px solid #E0D9C5", fontSize: "11px", color: "#6B7A5A", fontFamily: "system-ui", textTransform: "uppercase", letterSpacing: "0.05em" },
   contribRow: { display: "flex", alignItems: "center", padding: "8px 12px", borderBottom: "1px solid #F0EDE3", gap: "8px" },

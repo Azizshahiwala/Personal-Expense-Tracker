@@ -102,9 +102,9 @@ class GroupMember(Base):
     id = Column(Integer, primary_key=True,autoincrement=True)
     group_id = Column(String(10), ForeignKey("Group.invitecode"))
     user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))
-    member_budget=Column(Float,nullable=True)
+    member_budget=Column(Float,nullable=True,default=0.0)
     is_admin = Column(String(20), default="member")  # "admin" or "member"
-
+    has_set_budget = Column(Boolean, default=False, nullable=False)
 class ChatMessages(Base):
     __tablename__ = "Chatmessages"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -123,6 +123,7 @@ class ChatMessages(Base):
     
     amtspent = Column(Float,nullable=True)
     
+    amtrecovered = Column(Float,nullable=True, default=0.0)
 class Expenses(Base):
     __tablename__ = "Expenses"
 
