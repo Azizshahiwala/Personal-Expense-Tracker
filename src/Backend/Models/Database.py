@@ -103,6 +103,7 @@ class GroupMember(Base):
     group_id = Column(String(10), ForeignKey("Group.invitecode"))
     user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))
     member_budget=Column(Float,nullable=True,default=0.0)
+    spent=Column(Float,nullable=True,default=0.0)
     is_admin = Column(String(20), default="member")  # "admin" or "member"
     has_set_budget = Column(Boolean, default=False, nullable=False)
 class ChatMessages(Base):

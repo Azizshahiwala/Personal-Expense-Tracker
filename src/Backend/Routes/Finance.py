@@ -117,7 +117,8 @@ def getPersonalHistory(target_uuid:str,current_user: dict = Depends(get_current_
         print("Data found: ",results)
         return {"history":results,
                 "has_set_budget": budget.has_set_budget,
-                "member_budget": (budget.member_budget or 0.0)}
+                "member_budget": (budget.member_budget or 0.0),
+                "spent":budget.spent}
     except HTTPException as e:
         print("getPersonalHistory",e)
         raise
@@ -136,21 +137,6 @@ def setEntry(expEntry: ExpenseEntry, current_user: dict = Depends(get_current_us
     paidBy='You' 
     timestamp=datetime.datetime(2026, 5, 24, 6, 52, 37, 660000, tzinfo=TzInfo(0)) 
     removed=False
-
-    db columns:
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    expense_id = Column(UUID(as_uuid=True),nullable=False,index=True,unique=True) #This id is used to group when user selects contributed purchase option. 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id", ondelete="CASCADE"), nullable=False) #This is used to show, who this purchase belongs to
-    group_id = Column(String(10), ForeignKey("Group.invitecode", ondelete="CASCADE"), nullable=False, index=True)
-    chat_msg_id = Column(Integer, ForeignKey("Chatmessages.id", ondelete="CASCADE"), nullable=True)
-
-    individual_amt = Column(Float,nullable=False,default=0.0)
-    is_solo = Column(Boolean,nullable=False,default=True)
-    can_split_equal = Column(Boolean,nullable=True,default=False)
-    item_name = Column(String(255),nullable=False)
-    unit = Column(String(20),nullable=False)
-
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     '''
     try:
         #Check if user exists
@@ -209,6 +195,7 @@ def setEntry(expEntry: ExpenseEntry, current_user: dict = Depends(get_current_us
             
             #Now update the budget.
             curr_group_id.member_budget = (curr_group_id.member_budget or 0.0) - amtspent
+            curr_group_id.spent += amtspent 
             db.commit()
         else:
             for contributor in expEntry.contributors:
@@ -233,6 +220,7 @@ def setEntry(expEntry: ExpenseEntry, current_user: dict = Depends(get_current_us
                 user = db.query(GroupMember).filter(GroupMember.user_id == contributor_uuid).first()
                 if user:
                     user.member_budget = (user.member_budget or 0.0)-contributor['amount']  
+                    user.spent += contributor['amount']
                 
         db.add_all(batch)
         db.commit()
@@ -273,8 +261,10 @@ def delEntry(expense_id: str,current_user: dict = Depends(get_current_user), db:
 
             #Now give back to the user
             original = db.query(GroupMember).filter(GroupMember.group_id == this_expense[0].group_id).first()
+            
             if original:
-                original.member_budget = recovered
+                original.member_budget = original.member_budget + recovered
+                original.spent = original.spent - recovered
             
         else:
             print("This purchase is contributed.")
@@ -289,6 +279,7 @@ def delEntry(expense_id: str,current_user: dict = Depends(get_current_user), db:
                 original = db.query(GroupMember).filter(GroupMember.user_id == U_id).first()
                 if original:
                     original.member_budget += amt  # ← each member gets their own amount back
+                    original.spent -= amt
                     db.commit()
 
                 
@@ -339,10 +330,10 @@ def setBudget(item: updateBudget,current_user: dict = Depends(get_current_user),
             
             if not member: 
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid operation. User not in a group")
-
             
             if member:
-                member.member_budget = float(item.budget) if item.budget is not None else 0.0
+                remaining = member.member_budget or 0.0
+                member.member_budget = float(item.budget) + remaining if item.budget is not None else 0.0
                 member.has_set_budget = member.member_budget >= 100
 
             db.commit()

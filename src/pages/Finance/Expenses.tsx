@@ -199,7 +199,7 @@ function AddExpenseModal({
               {/* Total */}
               <div style={mStyles.fieldRow}>
                 <label style={mStyles.label}>Total (₹)</label>
-                <input type="number" disabled placeholder="0.00" value={total}
+                <input type="number" placeholder="0.00" value={total}
                   onChange={(e) => setTotal(e.target.value)} style={mStyles.textInput} />
               </div>
 
@@ -503,6 +503,7 @@ export default function Expenses() {
   const [groupmembers, setGroupmembers] = useState<GroupMember[]>([]);
   const [budget, setBudget] = useState<number>(0);
   const [hasSetBudget, setHasSetBudget] = useState<boolean>(false);
+  //const [totalSpent, settotalSpent] = useState<number>(0);
 const Rdata = JSON.parse(localStorage.getItem("currentRoom") || "{}");
 const groupId = Rdata.group_id || Rdata.Groupid;
 
@@ -564,6 +565,7 @@ const fetchMyExpenses = async () => {
       setExpenses(formatted);
       setBudget(data.member_budget);
       setHasSetBudget(data.has_set_budget ?? false);
+      //settotalSpent(data.spent??0);
       }
     } catch (err) {
       console.error("Failed to fetch expenses:", err);
@@ -615,7 +617,8 @@ const fetchMyExpenses = async () => {
   }};
 
   const totalSpent = expenses.filter((e) => !e.removed).reduce((sum, e) => sum + e.total, 0);
-
+  console.log("Total spent from backend:",totalSpent);
+  console.log("Budget - total spent",(totalSpent-budget-budget));
   return (
     <>
       <PageMeta title="Expenses" description="Track and manage group expenses" />
@@ -625,26 +628,24 @@ const fetchMyExpenses = async () => {
 
         {/* Budget summary bar */}
         <div style={pageStyles.budgetCard}>
+
           <div style={pageStyles.budgetItem}>
-            <span style={pageStyles.budgetLabel}>Your budget</span>
-            <span style={pageStyles.budgetVal}>₹{budget.toLocaleString()}</span>
+            <span style={pageStyles.budgetLabel}>Your budget / Remaining</span>
+            <span style={{ ...pageStyles.budgetVal, color: (budget) <= 100 ? "#C0392B" : "#D4E8B0" }}>
+              ₹{budget.toLocaleString()}</span>
           </div>
+          
           <div style={pageStyles.budgetDivider} />
+
           <div style={pageStyles.budgetItem}>
             <span style={pageStyles.budgetLabel}>You spent</span>
-            <span style={{ ...pageStyles.budgetVal, color: totalSpent > budget ? "#C0392B" : "#D4E8B0" }}>
+            <span style={{ ...pageStyles.budgetVal, color: (budget) < 100 ? "#C0392B" : "#D4E8B0" }}>
               ₹{totalSpent.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </span>
           </div>
-          <div style={pageStyles.budgetDivider} />
-          <div style={pageStyles.budgetItem}>
-            <span style={pageStyles.budgetLabel}>Remaining</span>
-            <span style={{ ...pageStyles.budgetVal, color: budget - totalSpent < 0 ? "#C0392B" : "#D4E8B0" }}>
-              ₹{(budget - totalSpent).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-            </span>
-          </div>
+          
         </div>
-
+        
         {/* Action buttons */}
 
          
