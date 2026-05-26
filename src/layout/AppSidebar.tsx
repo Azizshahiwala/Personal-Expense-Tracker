@@ -85,10 +85,10 @@ const AppSidebar: React.FC = () => {
     icon: <DollarLineIcon />,
     name: "Finance",
     subItems: [
-      { name: "Expenses", path: "/finance/expenses", pro: false },
+      { name: "Your Expenses", path: "/finance/expenses", pro: false },
       { name: "Settlements", path: "/finance/settlements", pro: false },
       { name: "Export Report", path: "/finance/report", pro: false },
-      { name: "History", path: "/finance/history", pro: false },
+      { name: "Group History", path: "/finance/history", pro: false },
     ],
   },
   {
