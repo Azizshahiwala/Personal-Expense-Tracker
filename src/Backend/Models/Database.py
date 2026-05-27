@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean,Float, ForeignKey,Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -85,33 +85,80 @@ class UserProfile(Base):
 
     #UserMetaCard and /header/UserDropdown.tsx
     pfp_path = Column(String(255),default="/images/user/default.jpg",nullable=False)
+
 #This table is for creation of groups
 class Group(Base):
-    __tablename__ = "Groups"
+    __tablename__ = "Group"
     
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True,autoincrement=True)
     group_name = Column(String(100))
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))  # Admin
+    invitecode = Column(String(10),nullable=False,unique=True)
     is_dissolved = Column(Boolean, default=False)
-
+    can_members_invite = Column(Boolean, default=True, nullable=False)
+    
+    
 #This table is for mapping users to groups and defining their roles (admin/member).
 class GroupMember(Base):
     __tablename__ = "Groupmembers"
-    
-    id = Column(Integer, primary_key=True)
-    group_id = Column(Integer, ForeignKey("Groups.id"))
+    id = Column(Integer, primary_key=True,autoincrement=True)
+    group_id = Column(String(10), ForeignKey("Group.invitecode"))
     user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))
+    member_budget=Column(Float,nullable=True,default=0.0)
+    spent=Column(Float,nullable=True,default=0.0)
     is_admin = Column(String(20), default="member")  # "admin" or "member"
+    has_set_budget = Column(Boolean, default=False, nullable=False)
+    
+    can_export_history = Column(Boolean, default=True, nullable=False)
+    can_update_calendar = Column(Boolean, default=True, nullable=False)
+    can_chat = Column(Boolean, default=True, nullable=False)
+    
+class ChatMessages(Base):
+    __tablename__ = "Chatmessages"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    #You need group id and sender id ondelete cascade. and index. so that retrival is fast.
+    
+    group_id = Column(String(10), ForeignKey("Group.invitecode", ondelete="CASCADE"), nullable=False, index=True)
+
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id", ondelete="CASCADE"), nullable=False)
+    
+    message = Column(Text, nullable=False)
+
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+
+    msgtype = Column(String(20),nullable=False,default="user")
+    
+    amtspent = Column(Float,nullable=True)
+    
+    amtrecovered = Column(Float,nullable=True, default=0.0)
+class Expenses(Base):
+    __tablename__ = "Expenses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    expense_id = Column(UUID(as_uuid=True),nullable=False,index=True) #This id is used to group when user selects contributed purchase option. 
+    user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id", ondelete="CASCADE"), nullable=False) #This is used to show, who this purchase belongs to
+    group_id = Column(String(10), ForeignKey("Group.invitecode", ondelete="CASCADE"), nullable=False, index=True)
+    chat_msg_id = Column(Integer, ForeignKey("Chatmessages.id", ondelete="CASCADE"), nullable=True)
+    contributor = Column(String(100),nullable=False)
+    individual_amt = Column(Float,nullable=False,default=0.0)
+    is_solo = Column(Boolean,nullable=False,default=True)
+    can_split_equal = Column(Boolean,nullable=True,default=False)
+    item_name = Column(String(255),nullable=False)
+    unit = Column(String(20),nullable=False)
+
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+class Settlements(Base):
+    __tablename__ = "Settlements"
+    id = Column(Integer, primary_key=True, autoincrement=True)
 
 def create_tables():
     try:
-        #this function is used to bind the models to the database and create the tables if they don't exist.
         Base.metadata.create_all(bind=engine)
         print("Tables created successfully.")
     except Exception as e:
         print(f"Error creating tables: {e}")
 
-# 5. Dependency to get the DB session in your routes
 def get_db():
     db = SessionLocal()
     try:
