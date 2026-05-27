@@ -95,7 +95,9 @@ class Group(Base):
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))  # Admin
     invitecode = Column(String(10),nullable=False,unique=True)
     is_dissolved = Column(Boolean, default=False)
-
+    can_members_invite = Column(Boolean, default=True, nullable=False)
+    
+    
 #This table is for mapping users to groups and defining their roles (admin/member).
 class GroupMember(Base):
     __tablename__ = "Groupmembers"
@@ -106,6 +108,11 @@ class GroupMember(Base):
     spent=Column(Float,nullable=True,default=0.0)
     is_admin = Column(String(20), default="member")  # "admin" or "member"
     has_set_budget = Column(Boolean, default=False, nullable=False)
+    
+    can_export_history = Column(Boolean, default=True, nullable=False)
+    can_update_calendar = Column(Boolean, default=True, nullable=False)
+    can_chat = Column(Boolean, default=True, nullable=False)
+    
 class ChatMessages(Base):
     __tablename__ = "Chatmessages"
     id = Column(Integer, primary_key=True, autoincrement=True)
