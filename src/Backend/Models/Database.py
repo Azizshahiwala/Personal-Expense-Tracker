@@ -95,7 +95,7 @@ class Group(Base):
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id"))  # Admin
     invitecode = Column(String(10),nullable=False,unique=True)
     is_dissolved = Column(Boolean, default=False)
-    can_members_invite = Column(Boolean, default=True, nullable=False)
+    can_see_invite_code = Column(Boolean, default=True, nullable=False)
     
     
 #This table is for mapping users to groups and defining their roles (admin/member).

@@ -33,7 +33,13 @@ export default function RoomSelection() {
       if (response.ok) {
         const roomData = await response.json();
         // Store room information in localStorage
-        localStorage.setItem('currentRoom', JSON.stringify(roomData));
+        const roomAttribute = [roomData.group_id,
+          roomData.room_code,
+          roomData.role,
+          roomData.Groupname,
+          roomData.RoomCodeVisibility
+        ];
+        localStorage.setItem('currentRoom', JSON.stringify(roomAttribute));
         // Navigate to dashboard after room selection
         navigate('/home');
       } else {

@@ -146,7 +146,6 @@ export const UpdateProfilePic = async ({actual_file}: fileprocess) => {
         }
         if(response.ok){
           const data = await response.json();
-          console.log("Pic entered:",data.pfp_path);
           currentUser.pfp_path = data.pfp_path;
           localStorage.setItem('user', JSON.stringify(currentUser));
         }
