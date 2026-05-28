@@ -8,3 +8,4 @@ passlib[bcrypt]
 psycopg2
 pydantic[email]
 python-multipart
+redis

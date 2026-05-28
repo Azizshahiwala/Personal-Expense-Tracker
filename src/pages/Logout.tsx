@@ -1,7 +1,16 @@
+import { useEffect } from "react";
+import { Link } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
-import { Link } from "react-router";
+import { useAuth } from "../context/AuthContext";
+
 export default function Logout() {
+  const { logout } = useAuth();
+
+  useEffect(() => {
+    logout();
+  }, [logout]);
+
   return (
     <div>
       <PageMeta

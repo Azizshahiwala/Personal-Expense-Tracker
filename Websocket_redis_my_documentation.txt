@@ -1,0 +1,120 @@
+Client side python implementation:
+
+import asyncio 
+import websockets 
+
+async def send_data():
+    
+    uri = "ws://localhost:8765"
+    while True:
+        async with websockets.connect(uri=uri) as websocket:
+
+            #Since websocket is open, write input and send the data.
+            data_in = input("Write something:")
+            print("(Client)Data sent from client: ",data_in)
+        
+            response = await websocket.send(data_in)
+            print("(Client)Response from server: ",response)
+
+
+#Here, send_data is an entry point.
+if __name__ == "__main__":
+    asyncio.run(send_data())
+
+
+Server side python implementation:
+
+import asyncio 
+import websockets 
+
+#This function will be used to send and receive data.
+async def send_receive(websocket):
+    #reveive data. Check for incoming data.
+    item = await websocket.recv()
+    print("(Server)Text received from client: ",item)
+    #send response from item
+    await websocket.send(item)
+
+
+#Here, main is an entry point.
+async def main():
+    async with websockets.serve(send_receive,"localhost",8765):
+        #This runs forever. 
+        await asyncio.Future()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
+
+What if its cross platform ?
+
+Let react be client. It establishes connection to websocket upon load. and listens/sends messages to backend.
+Next, from python backend, it subscribes to redis. (async pub/sub) and to websocket to close..
+
+[React Frontend] ← WebSocket → [FastAPI Server] ← Async Pub/Sub → [Redis Broker]
+
+
+Bridge 1: React to Python (The WebSocket Connection)
+Your frontend establishes a persistent, two-way connection to the backend using the browser's native WebSocket API.
+
+The React Code:
+
+JavaScript
+// 1. Establish the connection (use wss:// in production)
+const socket = new WebSocket("ws://localhost:8000/ws/V7YOME4584");
+
+// 2. Listen for incoming messages from Python
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log("New message received:", data.content);
+};
+
+// 3. Send a message to Python
+const sendMessage = (text) => {
+    socket.send(text);
+};
+
+// 4. Clean up when the component unmounts
+socket.onclose = () => console.log("Disconnected");
+Key Note: This connection is strictly between one user's browser and one specific FastAPI server worker.
+
+Bridge 2: Python to Redis (The Pub/Sub Connection)
+FastAPI acts as the middleman. When it receives a WebSocket message from React, it uses an asynchronous Redis client to publish that message to a specific "channel" (the room).
+
+The FastAPI Code:
+
+Python
+import redis.asyncio as redis
+import json
+
+# 1. Connect to the Redis Server
+redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
+pubsub = redis_client.pubsub()
+
+# 2. SUBSCRIBE to a room (Listen for broadcasts)
+async def listen_to_room(groupcode: str):
+    await pubsub.subscribe(f"room_{groupcode}")
+    async for message in pubsub.listen():
+        if message["type"] == "message":
+            data = json.loads(message["data"])
+            # Push this data down the WebSocket to React here...
+
+# 3. PUBLISH to a room (Send a broadcast)
+async def broadcast_message(groupcode: str, message_payload: dict):
+    await redis_client.publish(f"room_{groupcode}", json.dumps(message_payload))
+Key Note: Redis is incredibly fast because it stores everything in RAM. It does not save the chat history permanently; it only handles the live routing of the messages.
+
+The Complete Lifecycle (How a message travels)
+When User A sends a message to User B, here is the exact sequence of events:
+
+React (User A): Executes socket.send("Hello").
+FastAPI (Worker 1): Receives "Hello". It optionally saves this to PostgreSQL so the history is permanent.
+FastAPI (Worker 1): Executes redis_client.publish("room_V7YOME4584", "Hello").
+Redis: Receives the publish command. It looks at its subscription list and instantly blasts "Hello" to all FastAPI workers listening to room_V7YOME4584.
+FastAPI (Worker 2): Hears the broadcast from Redis. It looks at its active WebSockets and sees User B is connected to this room.
+FastAPI (Worker 2): Pushes the message down the WebSocket to User B.
+React (User B): The socket.onmessage event fires, updating the UI.
+
+Key contents: @router.get("/history/{roomcode}") (the joined query we just finalized)
+@router.websocket("/ws/{groupcode}") (the live text receiver and Redis broadcaster)

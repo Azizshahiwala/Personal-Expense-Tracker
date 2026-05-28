@@ -18,13 +18,40 @@ import Members from "./pages/Users/Members";
 import AdminPanel from "./pages/Users/AdminPanel";
 import FinanceHistory from "./pages/Finance/History";
 import ExportReport from "./pages/Finance/ExportReport";
-import ExpensesSettlements from "./pages/Finance/ExpensesSettlements";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoomSelection from "./pages/Chatroom/RoomSelection";
+import { useAuth } from "./context/AuthContext";
+import Expenses from "./pages/Finance/Expenses";
+import Settlements from "./pages/Finance/Settlements";
+const RootRedirect = () => {
+  const { user, isLoggedIn } = useAuth();
+  
+  const hasRoom = () => {
+    try {
+      const roomData = localStorage.getItem('currentRoom');
+      return roomData !== null && roomData !== undefined;
+    } catch (error) {
+      return false;
+    }
+  };
 
+  // If not logged in, go to sign in
+  if (!isLoggedIn || !user) {
+    return <Navigate to="/signin" replace />;
+  }
+  
+  // If logged in AND has a room, go to chatroom
+  if (hasRoom()) {
+    return <Navigate to="/chatroom/room" replace />;
+  }
+  
+  // If logged in but NO room, go to room selection
+  return <Navigate to="/chatroom/room-selection" replace />;
+};
 export default function App() {
   return (
-    <>
+    <>  
+    
     <AuthProvider>
       <Router>
         <ScrollToTop />
@@ -45,7 +72,8 @@ export default function App() {
             <Route path='/chatroom/room-selection' element={<RoomSelection/>}/>
 
             {/* Finance */}
-            <Route path="/finance/expensesandsettlements" element={<ExpensesSettlements />} />
+            <Route path="/finance/expenses" element={<Expenses />} />
+            <Route path="/finance/settlements" element={<Settlements />} />
             <Route path="/finance/report" element={<ExportReport />} />
             <Route path="/finance/history" element={<FinanceHistory />} />
 
@@ -56,11 +84,12 @@ export default function App() {
           </Route>
 
           {/* Public Auth Routes */}
-          <Route path="/" element={<Navigate to="/signin" replace />} />
-          <Route path="/login" element={<Navigate to="/signin" replace />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path='/logout' element={<Logout />} />
+          <Route path="/" element={<RootRedirect />} />
+            
+            <Route path="/login" element={<Navigate to="/signin" replace />} />
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path='/logout' element={<Logout />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

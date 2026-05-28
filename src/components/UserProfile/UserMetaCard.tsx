@@ -42,9 +42,6 @@ export default function UserMetaCard() {
   };
   const { isOpen, openModal, closeModal } = useModal();
   const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-
     if (actual_file) UpdateProfilePic({actual_file});
     UpdateProfileData({
       bio,

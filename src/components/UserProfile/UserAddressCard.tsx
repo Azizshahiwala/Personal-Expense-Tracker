@@ -26,9 +26,6 @@ export default function UserAddressCard() {
   const { isOpen, openModal, closeModal } = useModal();
 
   const handleSave = () => {
-    // Handle save logic here
-    //Send data to backend.
-    console.log("Saving changes...");
     UpdateProfileData({
       country:country,
       postalCode:postalCode,
@@ -39,7 +36,6 @@ export default function UserAddressCard() {
 
   useEffect(() => {
     if (!userData) return;
-    console.log(userData);
     setCountry(userData.country ?? "");
     setCity(userData.city ?? "");
     setPostalCode(userData.postalCode ?? "");

@@ -63,7 +63,7 @@ export function useUserData({ target_uuid, target_email }: UniqueUser) {
       setError(null);
 
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('access_token');
         const response = await fetch(`${VITE_ROUTE_API_KEY}/auth/getuserdata?${query}`, {
           method: "GET",
           headers: {
@@ -132,7 +132,7 @@ export const UpdateProfilePic = async ({actual_file}: fileprocess) => {
   formData.append("file",actual_file);
 
   try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('access_token');
         const response = await fetch(`${VITE_ROUTE_API_KEY}/auth/updateUserpfp/${currentId}`, {
           method: "POST",
           headers: {
@@ -172,7 +172,7 @@ export const UpdateProfileData = async ({bio, city, phone_number, country, posta
     const User = localStorage.getItem('user');
     const currentUser = User ? JSON.parse(User) : null;
     
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     const response = await fetch(`${VITE_ROUTE_API_KEY}/auth/updateExistingProfile`, {
       method: "POST",
       headers: {
