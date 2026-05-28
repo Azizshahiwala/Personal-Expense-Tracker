@@ -30,8 +30,6 @@ const AppSidebar: React.FC = () => {
   
   const { isAdmin } = useAuth();
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
-  const [CodeVisibility, setCodeVisibility] = useState<Boolean>(true);
-  const [thisRole, setthisRole] = useState<String>("");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -44,11 +42,7 @@ const AppSidebar: React.FC = () => {
       return false;
     }
   }, []);
-  //Check if user is not admin and has code visibility:
-  const roomData = localStorage.getItem('currentRoom');
-  console.log(roomData);
-  setthisRole(roomData.role);
-  setCodeVisibility(Boolean(roomData.RoomCodeVisibility));
+
   const othersItems: NavItem[] = [
   {
     icon: <BoltIcon />,
@@ -91,9 +85,10 @@ const AppSidebar: React.FC = () => {
     icon: <DollarLineIcon />,
     name: "Finance",
     subItems: [
-      { name: "Expenses and Settlements", path: "/finance/expensesandsettlements", pro: false },
+      { name: "Your Expenses", path: "/finance/expenses", pro: false },
+      { name: "Settlements", path: "/finance/settlements", pro: false },
       { name: "Export Report", path: "/finance/report", pro: false },
-      { name: "History", path: "/finance/history", pro: false },
+      { name: "Group History", path: "/finance/history", pro: false },
     ],
   },
   {
