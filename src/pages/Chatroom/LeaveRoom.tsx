@@ -3,36 +3,53 @@ import { useNavigate } from 'react-router-dom';
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
+const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
 
 export default function LeaveRoom() {
   const navigate = useNavigate();
   const [isLeaving, setIsLeaving] = useState(false);
-
+  const [errorMsg, seterrorMsg] = useState("");
   const handleLeaveRoom = async () => {
     setIsLeaving(true);
+    seterrorMsg("");
     try {
+
+      const roomdata = localStorage.getItem('currentRoom');
+      const processed = roomdata ? JSON.parse(roomdata) : null;
+
+      const data = localStorage.getItem('user');
+      const userdata = data ? JSON.parse(data) : null;
+    
+      console.log("Processed: ",JSON.stringify(processed));
       // TODO: Call API to leave room
-      const response = await fetch('/api/groups/leave', {
+      const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/leave`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: JSON.stringify({group_id: processed.Groupid , target_uuid:userdata.id, role: processed.role})
       });
 
       if (response.ok) {
-        // Clear room data from localStorage
+        const jsonstr = await response.json();
+
+        if(jsonstr.adminError){
+         seterrorMsg(jsonstr.adminError); 
+         return;
+        }
         localStorage.removeItem('currentRoom');
-        // Navigate to room selection
+    
         navigate('/chatroom/room-selection');
       } else {
-        alert('Failed to leave room');
+        seterrorMsg('Failed to leave room');
       }
     } catch (error) {
       console.error(error);
-      alert('Error leaving room');
+      seterrorMsg('Error leaving room');
     } finally {
       setIsLeaving(false);
+      seterrorMsg("");
     }
   };
 
@@ -48,7 +65,7 @@ export default function LeaveRoom() {
           <h3 className="mb-4 font-semibold text-gray-800 text-theme-xl dark:text-white/90 sm:text-2xl">
             Leave Room
           </h3>
-
+          
           <p className="mb-8 text-sm text-gray-500 dark:text-gray-400 sm:text-base">
             Are you sure you want to leave the current room? This action cannot be undone.
           </p>
@@ -60,7 +77,7 @@ export default function LeaveRoom() {
               variant="outline"
               className="w-full"
             >
-              {isLeaving ? 'Leaving...' : 'Leave Room'}
+              {isLeaving ? ( errorMsg ? errorMsg : 'Leaving...') : 'Leave Room'}
             </Button>
 
             <Button
@@ -70,6 +87,7 @@ export default function LeaveRoom() {
             >
               Cancel
             </Button>
+            {errorMsg ? <p className="space-y-4">{errorMsg}</p> : null}
           </div>
         </div>
       </div>
