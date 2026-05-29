@@ -3,6 +3,7 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { FcInfo,FcEngineering } from "react-icons/fc";
 import { CiShoppingCart } from "react-icons/ci";
+import { useAuth } from "../../context/AuthContext";
 type MessageType = "user" | "purchase" | "notification" | "system";
 
 interface Message {
@@ -101,6 +102,29 @@ function renderSystemMessage(msg: Message) {
     </div>
   );
 }
+const {isAdmin} = useAuth();
+const hasRoom = () => {
+    try {
+      const roomData = localStorage.getItem('currentRoom');
+      return Boolean(roomData !== null && roomData !== undefined);
+    } catch (error) {
+      return false;
+    }
+  };
+
+const CodeVisibility = () => {
+  
+  try {
+    if (hasRoom() && !isAdmin) {
+      const room = JSON.parse(localStorage.getItem('currentRoom') || '{}');
+      return Boolean(room.RoomCodeVisibility);
+    }
+    return Boolean(true);
+  } catch {
+    return false;
+  }
+}
+
 
 export default function Room() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -108,8 +132,6 @@ export default function Room() {
   const [isConnected, setIsConnected] = useState(false);
   const [roomCode, setroomCode] = useState("");
   const [roomName, setroomName] = useState("");
-  const [CodeVisibility,setCodeVisibility] = useState<Boolean>(true);
-  const [thisRole, setthisRole] = useState<String>("");
   const activeUserIdRef = useRef("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -152,10 +174,6 @@ export default function Room() {
     
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
-
-    const hasvisibilityAccess = Boolean(currentRoom.RoomCodeVisibility);
-    setCodeVisibility(hasvisibilityAccess);
-
     const roomCodeVal = currentRoom?.group_id || currentRoom?.Groupid || "";
     const userIdVal = currentUser.user_id || currentUser.id || "";
     const token = localStorage.getItem("access_token");
@@ -164,7 +182,6 @@ export default function Room() {
 
     setroomCode(roomCodeVal);
     setroomName(currentRoom?.room_name || currentRoom?.Groupname || "Room");
-    setthisRole(currentRoom.role);
     getHistory(roomCodeVal, userIdVal);
 
     if (!roomCodeVal || !token) return;
@@ -257,7 +274,7 @@ export default function Room() {
             <div style={styles.leafIcon}>🌿</div>
             <div>
               <div style={styles.headerTitle}>{roomName}</div>
-              {CodeVisibility && thisRole != "member"? (<div style={styles.headerSub}>Code: {roomCode}</div>) : null}
+              {CodeVisibility()? (<div style={styles.headerSub}>Code: {roomCode}</div>) : null}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

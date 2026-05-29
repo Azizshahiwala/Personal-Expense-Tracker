@@ -70,7 +70,6 @@ export default function RoomSelection() {
       setCreateError('');
     }
   };
-//V7YOME4584
   const handleJoinRoom = async () => {
     const data = localStorage.getItem('user');
     const parsed = data ? JSON.parse(data) : null;

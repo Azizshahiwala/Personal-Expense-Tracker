@@ -149,6 +149,7 @@ def joinRoom(room: joinRoomSchema, db: Session = Depends(get_db), current_user: 
             "group_id": member.group_id,
             "room_code": record.invitecode,
             "role": member.is_admin,
+            "RoomCodeVisibility":record.can_see_invite_code,
             "CanExportHistory":member.can_export_history,
             "CanChat":member.can_chat,
             "CanUpdateCalendar":member.can_update_calendar,

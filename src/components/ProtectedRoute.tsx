@@ -22,6 +22,7 @@ export default function ProtectedRoute({ children, requiredRole, requireRoom }: 
     }
   };
 
+
   if (!isLoggedIn) {
     return <Navigate to="/signin" replace />;
   }

@@ -42,7 +42,17 @@ const AppSidebar: React.FC = () => {
       return false;
     }
   }, []);
-
+  const CodeVisibility = () => {
+  try {
+    if (hasRoom() && !isAdmin) {
+      const room = JSON.parse(localStorage.getItem('currentRoom') || '{}');
+      return Boolean(room.RoomCodeVisibility);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
   const othersItems: NavItem[] = [
   {
     icon: <BoltIcon />,
@@ -74,13 +84,13 @@ const AppSidebar: React.FC = () => {
           path: "/",
         },
         {
-    icon: <ChatIcon />,
-    name: "Chatroom",
-    subItems: [
-      { name: "Chat", path: "/chatroom/room", pro: false },
-      { name: "Invite", path: "/chatroom/invite", pro: false },
-    ],
-  },
+          icon: <ChatIcon />,
+          name: "Chatroom",
+          subItems: [
+            { name: "Chat", path: "/chatroom/room", pro: false },
+            ...(CodeVisibility()? [{ name: "Invite", path: "/chatroom/invite", pro: false }]:[]),
+          ],
+        },
   {
     icon: <DollarLineIcon />,
     name: "Finance",
