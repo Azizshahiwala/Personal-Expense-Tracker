@@ -34,7 +34,6 @@ const HandleSubmit = async (e: React.FormEvent, email: string, password: string)
       return;
     }
 
-    // Call login API
     const response = await fetch(`${VITE_ROUTE_API_KEY}/auth/login`, {
       method: "POST",
       headers: {
@@ -50,13 +49,13 @@ const HandleSubmit = async (e: React.FormEvent, email: string, password: string)
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      // 2. Safely handle room data
       if (data.room_data) {
         localStorage.setItem('currentRoom', JSON.stringify(data.room_data));
-        
+        console.log("From login:",JSON.stringify(data.room_data));
         // Pass the role securely into the context
         login({ ...data.user, role: data.room_data.role });
       } else {
+        console.log("CurrentRoom removed");
         localStorage.removeItem('currentRoom');
         login(data.user);
       }

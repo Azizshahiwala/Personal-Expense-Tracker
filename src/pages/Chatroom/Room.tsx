@@ -102,7 +102,12 @@ function renderSystemMessage(msg: Message) {
     </div>
   );
 }
-const {isAdmin} = useAuth();
+
+
+
+export default function Room() {
+
+  const {isAdmin} = useAuth();
 const hasRoom = () => {
     try {
       const roomData = localStorage.getItem('currentRoom');
@@ -124,9 +129,6 @@ const CodeVisibility = () => {
     return false;
   }
 }
-
-
-export default function Room() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isConnected, setIsConnected] = useState(false);

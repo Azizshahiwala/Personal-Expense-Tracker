@@ -83,15 +83,19 @@ def createRoom(room: createRoomSchema, db: Session = Depends(get_db), current_us
     
     if not record:
         raise HTTPException(status_code=500, detail="Failed to retrieve room data after creation.")
-        
+    
     # Construct the dictionary directly
     room_data = {
-        "group_id": record.group_id,
+        "group_id": member.group_id,
         "room_code": entry.invitecode,
         "role": record.is_admin,
         "Groupname":room.roomname,
-        "RoomCodeVisibility":entry.can_see_invite_code
+        "RoomCodeVisibility":entry.can_see_invite_code,
+        "CanChat":member.can_chat,
+        "CanExportHistory":member.can_export_history,
+        "CanUpdateCalendar":member.can_update_calendar
     }
+    print("ROOM DATA: ",room_data)
     #Can see invite code attribute is global constriant
     return room_data
     
@@ -152,7 +156,7 @@ def joinRoom(room: joinRoomSchema, db: Session = Depends(get_db), current_user: 
             "RoomCodeVisibility":record.can_see_invite_code,
             "CanExportHistory":member.can_export_history,
             "CanChat":member.can_chat,
-            "CanUpdateCalendar":member.can_update_calendar,
+            "CanUpdateCalendar":member.can_update_calendar
         }
 
     except HTTPException as e:
@@ -182,10 +186,7 @@ def leaveRoom(room: leaveRoomSchema, db: Session = Depends(get_db),current_user:
         username = db.query(Credentials).filter(Credentials.unique_user_id == room.target_uuid).first()
 
         notif = None
-        print("--------------------------------")
         if username:
-            print("Username found while leaving:",username)
-
             #Add a notification:
             notif = ChatMessages(group_id=room.group_id,
                              sender_id=room.target_uuid,
@@ -316,3 +317,43 @@ def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user:
     except Exception as e:
         print("Fetch members error:", e)
         raise HTTPException(status_code=500, detail="Failed to fetch group members.")
+    
+@router.put("/restrictInvite/{groupcode}")
+def restrictInvite(groupcode: str,db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    try:
+        #Check if person issuing the command, actually admin.
+        grp_admin = db.query(GroupMember).join(Group, Group.invitecode == GroupMember.group_id ).filter(
+            GroupMember.group_id == groupcode,
+            Group.created_by_id == current_user['user_id']).first()
+
+        if not grp_admin:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not admin of this group.")
+
+        #Now check if this grp exists
+        group = db.query(Group).filter(
+            Group.invitecode == groupcode).first()
+
+        if not group:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This group does not exist.")
+
+        #Process
+        Group_setting = db.query(Group).filter(Group.created_by_id == grp_admin.user_id, Group.invitecode == groupcode).first()
+
+        if not Group_setting:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Internal database error. DB might be locked.")
+        
+        if bool(Group_setting.can_see_invite_code):
+            Group_setting.can_see_invite_code = False
+        else: 
+            Group_setting.can_see_invite_code = True
+
+        db.commit()
+        db.refresh(Group_setting)
+        print("Restricted: ",Group_setting.can_see_invite_code)
+        return {"Restrict":Group_setting.can_see_invite_code}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("error:", e)
+        raise HTTPException(status_code=500, detail="Failed to process restrictions on invite.")
+     

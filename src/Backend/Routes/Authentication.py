@@ -166,8 +166,7 @@ def register(user:registerSchema, db: Session = Depends(get_db)):
             
             return {"message": "User registered successfully.", "unique_user_id": str(newUser.unique_user_id),"access_token": token}
     except HTTPException:
-        # FIX 4: Re-raise HTTPExceptions immediately (don't let them fall
-        # into the generic Exception handler below).
+        
         db.rollback()
         raise
     except ValueError as ve:
@@ -210,13 +209,18 @@ def login(user: loginSchema, db: Session = Depends(get_db)):
             group_record = db.query(Group).filter(Group.invitecode == member_record.group_id).first()
             
             if group_record:
+                
                 room_data = {
                     "Groupname": group_record.group_name,
                     "GroupMemberkey": member_record.id,
                     "Groupid": group_record.invitecode,
-                    "role": member_record.is_admin
+                    "RoomCodeVisibility": group_record.can_see_invite_code,
+                    "CanChat":member_record.can_chat,
+                    "CanExportHistory":member_record.can_export_history,
+                    "CanUpdateCalendar":member_record.can_update_calendar,
+                    "role": member_record.is_admin    
                 }
-                
+                print("Room data :",room_data)
         return {
             "access_token": str(access_token),
             "token_type": "bearer",

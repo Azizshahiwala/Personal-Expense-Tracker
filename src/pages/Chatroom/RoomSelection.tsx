@@ -1,5 +1,4 @@
-//This page is loaded when user has logged in or registered.
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
@@ -9,24 +8,41 @@ import Input from "../../components/form/input/InputField";
 import Label from "../../components/form/Label";
 
 export default function RoomSelection() {
-
-  const hasRoom = () => {
-    try {
-      const roomData = localStorage.getItem('currentRoom');
-      return roomData !== null && roomData !== undefined;
-    } catch (error) {
-      return false;
-    }
-  };
   const navigate = useNavigate();
+  const { user, isLoggedIn } = useAuth();
+  
   const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const { user, setUser } = useAuth();
-  const [createError, setCreateError] = useState('');  // ← Better than alert()
+  const [createError, setCreateError] = useState('');
   const [joinError, setJoinError] = useState('');
+  
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      // User logged out → clear room data
+      localStorage.removeItem('currentRoom');
+      return;
+    }
+
+    const roomData = localStorage.getItem('currentRoom');
+    if (roomData) {
+      try {
+        JSON.parse(roomData);
+        console.log(roomData);  
+        navigate('/chatroom/room');  
+      } catch {
+        localStorage.removeItem('currentRoom');
+        console.log(roomData);
+      }
+    }
+    else{
+      console.log(roomData);
+    }
+  }, [isLoggedIn, navigate]);
+
   const handleCreateRoom = async () => {
     if (!roomName.trim()) {
       setCreateError('Please enter a room name');
@@ -35,50 +51,38 @@ export default function RoomSelection() {
     setIsCreating(true);
     setCreateError('');
     try {
-
-      const data = localStorage.getItem('user');
-      const parsed = data ? JSON.parse(data) : null;
-      let uuid = parsed.id;
       const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/create`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
-        body: JSON.stringify({ roomname: roomName ,created_by_uuid:uuid})
+        body: JSON.stringify({ roomname: roomName, created_by_uuid: user?.id })
       });
+      
       if (response.ok) {
         const roomData = await response.json();
-        // Store room information in localStorage
-        const roomAttribute = [roomData.group_id,
-          roomData.room_code,
-          roomData.role,
-          roomData.Groupname,
-          roomData.RoomCodeVisibility
-        ];
-        localStorage.setItem('currentRoom', JSON.stringify(roomAttribute));
-        // Navigate to dashboard after room selection
-        navigate('/home');
+        localStorage.setItem('currentRoom', JSON.stringify(roomData));
+        console.log(roomData);
+        navigate('/chatroom/room');
       } else {
         setCreateError('Failed to create room');
       }
     } catch (error) {
       console.error(error);
-      setCreateError('Error creating room'); 
+      setCreateError('Error creating room');
     } finally {
       setIsCreating(false);
-      setCreateError('');
     }
   };
+
   const handleJoinRoom = async () => {
-    const data = localStorage.getItem('user');
-    const parsed = data ? JSON.parse(data) : null;
-    let uuid = parsed.id;
     if (!joinCode.trim()) {
       setJoinError('Please enter a join code');
       return;
     }
     setIsJoining(true);
+    setJoinError('');
     try {
       const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/join`, {
         method: 'POST',
@@ -86,17 +90,14 @@ export default function RoomSelection() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
-        body: JSON.stringify({ joincode: joinCode, joining_by_uuid: uuid})
+        body: JSON.stringify({ joincode: joinCode, joining_by_uuid: user?.id })
       });
+      
       if (response.ok) {
         const roomData = await response.json();
         localStorage.setItem('currentRoom', JSON.stringify(roomData));
-        
-        // the ... is a spread operator, which appends shallow object of existing user obj.
-        // and ! mark in front, tells to treat the obj as not null even if its empty.
-        //a user is an member who joins a group.
-        setUser({...user!,role:'member'});
-        navigate('/home');
+        console.log(roomData);
+        navigate('/chatroom/room');
       } else {
         setJoinError('Failed to join room');
       }
@@ -105,13 +106,9 @@ export default function RoomSelection() {
       setJoinError('Error joining room');
     } finally {
       setIsJoining(false);
-      setJoinError('');
     }
   };
 
-  if(hasRoom()){
-    navigate("/chatroom/room");
-  } 
   return (
     <div>
       <PageMeta
@@ -133,7 +130,6 @@ export default function RoomSelection() {
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
               <h4 className="mb-4 font-medium text-gray-800 dark:text-white/90">Create a New Room</h4>
               <div className="space-y-4">
-                
                 <div>
                   <Label>Room Name</Label>
                   <Input
@@ -143,14 +139,8 @@ export default function RoomSelection() {
                     onChange={(e) => setRoomName(e.target.value)}
                   />
                 </div>
-                {createError && (
-                  <p className="text-sm text-red-500">{createError}</p>
-                )}
-                <Button
-                  onClick={handleCreateRoom}
-                  disabled={isCreating}
-                  className="w-full"
-                >
+                {createError && <p className="text-sm text-red-500">{createError}</p>}
+                <Button onClick={handleCreateRoom} disabled={isCreating} className="w-full">
                   {isCreating ? 'Creating...' : 'Create Room'}
                 </Button>
               </div>
@@ -169,15 +159,8 @@ export default function RoomSelection() {
                     onChange={(e) => setJoinCode(e.target.value)}
                   />
                 </div>
-                {joinError && (
-                  <p className="text-sm text-red-500">{joinError}</p>
-                )}
-                <Button
-                  onClick={handleJoinRoom}
-                  disabled={isJoining}
-                  variant="outline"
-                  className="w-full"
-                >
+                {joinError && <p className="text-sm text-red-500">{joinError}</p>}
+                <Button onClick={handleJoinRoom} disabled={isJoining} variant="outline" className="w-full">
                   {isJoining ? 'Joining...' : 'Join Room'}
                 </Button>
               </div>

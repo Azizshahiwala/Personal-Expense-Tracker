@@ -44,6 +44,11 @@ export default function AdminPanel() {
         const safeGroupCode = currentRoom.Groupid || currentRoom.group_id || "";
         console.log("Group code fetched: ",safeGroupCode);
         console.log("Current grp: ",currentRoom); 
+        
+        if(currentRoom){
+          const latest = !currentRoom.RoomCodeVisibility
+          setInviteRestricted(latest);
+        }
         if (!safeGroupCode) {
           setError("No active room found. Please join a room first.");
           setIsLoading(false);
@@ -112,14 +117,42 @@ export default function AdminPanel() {
 
   // ─── CORE LOGIC PLACEHOLDERS ──────────────────────────────────────────────
 
-  const handleToggleInviteRestriction = () => {
-    // TODO: Send API request to toggle room invite restriction
+  const handleToggleInviteRestriction = async () => {
     console.log("Setting invite restriction to:", !inviteRestricted);
-    setInviteRestricted(!inviteRestricted);
+    
+    try{
+      const currentRoom = JSON.parse(localStorage.getItem('currentRoom') || '{}');
+        const token = localStorage.getItem('access_token'); 
+        const safeGroupCode = currentRoom.Groupid || currentRoom.group_id || "";
+
+      const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/restrictInvite/${safeGroupCode}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setInviteRestricted(data.Restrict);
+          currentRoom.RoomCodeVisibility = inviteRestricted;
+
+          localStorage.setItem('currentRoom',JSON.stringify(currentRoom));
+          console.log("Toggle currentroom:",currentRoom);
+          
+        } else {
+          setError(data.detail || "Failed to load members.");
+        }
+      } catch (err) {
+        console.error(err);
+        setError("An unexpected error occurred while fetching members.");
+      } finally {
+        setIsLoading(false);
+      }
   };
 
   const handleMuteMember = (userId: string) => {
-    // TODO: Send API request to update user's mute status
     console.log("Toggling mute for user:", userId);
     
     // Update local UI state
@@ -225,8 +258,8 @@ export default function AdminPanel() {
 
                 {/* Table Body */}
                 <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {members.map((member) => (
-                    <TableRow key={member.id}>
+                  {members.map((member,index) => (
+                    <TableRow key={index}>
                       
                       {/* User Profile Cell */}
                       <TableCell className="px-5 py-4 sm:px-6 text-start">
