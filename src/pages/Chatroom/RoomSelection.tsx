@@ -10,7 +10,7 @@ import Label from "../../components/form/Label";
 export default function RoomSelection() {
   const navigate = useNavigate();
   const { user, isLoggedIn } = useAuth();
-  
+  const [rejoinCooldown, setRejoinCooldown] = useState<number | null>(null);
   const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -77,37 +77,47 @@ export default function RoomSelection() {
   };
 
   const handleJoinRoom = async () => {
-    if (!joinCode.trim()) {
-      setJoinError('Please enter a join code');
+  if (!joinCode.trim()) {
+    setJoinError('Please enter a join code');
+    return;
+  }
+  
+  setIsJoining(true);
+  try {
+    const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/join`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: JSON.stringify({ joincode: joinCode, joining_by_uuid: user?.id })
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      
+      // Parse cooldown message
+      if (data.detail && data.detail.includes("You can rejoin in")) {
+        const match = data.detail.match(/(\d+)\s+hours/);
+        if (match) {
+          setRejoinCooldown(parseInt(match[1]));
+        }
+      }
+      
+      setJoinError(data.detail || 'Failed to join room');
       return;
     }
-    setIsJoining(true);
-    setJoinError('');
-    try {
-      const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        body: JSON.stringify({ joincode: joinCode, joining_by_uuid: user?.id })
-      });
-      
-      if (response.ok) {
-        const roomData = await response.json();
-        localStorage.setItem('currentRoom', JSON.stringify(roomData));
-        console.log(roomData);
-        navigate('/chatroom/room');
-      } else {
-        setJoinError('Failed to join room');
-      }
-    } catch (error) {
-      console.error(error);
-      setJoinError('Error joining room');
-    } finally {
-      setIsJoining(false);
-    }
-  };
+
+    const roomData = await response.json();
+    localStorage.setItem('currentRoom', JSON.stringify(roomData));
+    navigate('/chatroom/room');
+  } catch (error) {
+    console.error(error);
+    setJoinError('Error joining room');
+  } finally {
+    setIsJoining(false);
+  }
+};
 
   return (
     <div>
@@ -147,6 +157,11 @@ export default function RoomSelection() {
             </div>
 
             {/* Join Room Section */}
+            {rejoinCooldown !== null && (
+  <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700">
+    <p className="text-sm font-medium">Cooldown active</p>
+    <p className="text-xs mt-1">You can rejoin this group in {rejoinCooldown} hours</p>
+  </div>)}
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800/50">
               <h4 className="mb-4 font-medium text-gray-800 dark:text-white/90">Join an Existing Room</h4>
               <div className="space-y-4">

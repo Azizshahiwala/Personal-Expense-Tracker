@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean,Float, ForeignKey,Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean,Float, ForeignKey,Text,Index
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -112,7 +112,18 @@ class GroupMember(Base):
     can_export_history = Column(Boolean, default=True, nullable=False)
     can_update_calendar = Column(Boolean, default=True, nullable=False)
     can_chat = Column(Boolean, default=True, nullable=False)
+
+class KickedMember(Base):
+    __tablename__ = "KickedMembers"
     
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("Credentials.unique_user_id", ondelete="CASCADE"), nullable=False)
+    group_id = Column(String(10), ForeignKey("Group.invitecode", ondelete="CASCADE"), nullable=False)
+    kicked_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    can_rejoin_at = Column(DateTime, nullable=False)  # kicked_at + 24 hours
+    
+    __table_args__ = (Index('idx_user_group_kick', 'user_id', 'group_id'),)
+
 class ChatMessages(Base):
     __tablename__ = "Chatmessages"
     id = Column(Integer, primary_key=True, autoincrement=True)

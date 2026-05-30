@@ -1,14 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Request,Form
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel
 import random,string
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
-
 #We import the database i am going to use, with a session function.
-from Models.Database import Group,GroupMember,Credentials,UserProfile,ChatMessages, get_db
+from Models.Database import Group,GroupMember,Credentials,UserProfile,ChatMessages,KickedMember, get_db
 from Routes.Authentication import get_current_user
-
+from uuid import UUID
 router = APIRouter(prefix="/api/groups", tags=["Groups"])
 
 class RoomCodeCollide(Exception):
@@ -102,6 +100,27 @@ def createRoom(room: createRoomSchema, db: Session = Depends(get_db), current_us
 @router.post("/join")
 def joinRoom(room: joinRoomSchema, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     try:
+
+        kick_record = db.query(KickedMember).filter(
+        KickedMember.user_id == UUID(room.joining_by_uuid),
+        KickedMember.group_id == room.joincode,
+        KickedMember.can_rejoin_at > datetime.utcnow()).first()
+        
+
+        if kick_record:
+            time_left = kick_record.can_rejoin_at - datetime.utcnow()
+            hours_left = int(time_left.total_seconds() / 3600)
+            raise HTTPException(
+            status_code=403,
+            detail=f"You were removed from this group. You can rejoin in {hours_left} hours."
+        )
+    
+        # Remove old kick record if 24 hours passed
+        db.query(KickedMember).filter(
+        KickedMember.user_id == UUID(room.joining_by_uuid),
+        KickedMember.group_id == room.joincode,
+        KickedMember.can_rejoin_at <= datetime.utcnow()).delete()
+        
         # 1. Validate ownership
         if room.joining_by_uuid != current_user['user_id']:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="There was an error joining a room.")
@@ -342,13 +361,29 @@ def restrictInvite(groupcode: str,db: Session = Depends(get_db), current_user: d
         if not Group_setting:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Internal database error. DB might be locked.")
         
+        sysMsg= ""
         if bool(Group_setting.can_see_invite_code):
             Group_setting.can_see_invite_code = False
+            sysMsg= "Users can no longer see invite code."
         else: 
             Group_setting.can_see_invite_code = True
+            sysMsg= "Users can now see invite code."
 
         db.commit()
         db.refresh(Group_setting)
+
+        
+            #Add a notification:
+        notif = ChatMessages(group_id=groupcode,
+                             sender_id=current_user["user_id"],
+                             message=sysMsg,
+                             timestamp=datetime.now(),
+                             msgtype="system")
+            
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+
         print("Restricted: ",Group_setting.can_see_invite_code)
         return {"Restrict":Group_setting.can_see_invite_code}
     except HTTPException:
@@ -356,4 +391,52 @@ def restrictInvite(groupcode: str,db: Session = Depends(get_db), current_user: d
     except Exception as e:
         print("error:", e)
         raise HTTPException(status_code=500, detail="Failed to process restrictions on invite.")
-     
+
+@router.delete("/kick/{group_id}/{user_id}")
+def kickMember(group_id: str, user_id: str, current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    
+    is_admin = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == current_user['user_id'],
+        GroupMember.is_admin == "admin"
+    ).first()
+    
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can kick members")
+    
+    #notifs - get kicked member username first.
+    kicked_member = db.query(Credentials).filter(Credentials.unique_user_id == UUID(user_id)).first()
+    fullname=""
+    if kicked_member:
+        fullname=kicked_member.first_name+" "
+        fullname = fullname + kicked_member.last_name
+    
+    # Delete from GroupMember
+    db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == UUID(user_id)
+    ).delete()
+    
+    # Record the kick with 24-hour cooldown
+    now = datetime.utcnow()
+    kick_record = KickedMember(
+        user_id=UUID(user_id),
+        group_id=group_id,
+        kicked_at=now,
+        can_rejoin_at=now + timedelta(hours=24)
+    )
+    db.add(kick_record)
+    db.commit()
+    
+    
+
+    notif = ChatMessages(group_id=group_id,
+                             sender_id=current_user["user_id"],
+                             message=f"{fullname} has been kicked out of the room.",
+                             timestamp=datetime.now(),
+                             msgtype="system")
+            
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+    return {"detail": "Member removed. They can rejoin in 24 hours."}
