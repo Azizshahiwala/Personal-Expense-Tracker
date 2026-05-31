@@ -30,7 +30,8 @@ class leaveRoomSchema(BaseModel):
 class dissolveRoomSchema(BaseModel):
     groupcode: str
     target_uuid: str
-
+class MuteRequestSchema(BaseModel):
+    can_chat: bool
 def createRoomCode(size=10,chars=string.ascii_uppercase + string.digits):
 #This function is used to create an unique roomcode.
 #Choice function select random element from non-spaced seq. and range generates 6 items using string passed.
@@ -93,7 +94,6 @@ def createRoom(room: createRoomSchema, db: Session = Depends(get_db), current_us
         "CanExportHistory":member.can_export_history,
         "CanUpdateCalendar":member.can_update_calendar
     }
-    print("ROOM DATA: ",room_data)
     #Can see invite code attribute is global constriant
     return room_data
     
@@ -157,7 +157,6 @@ def joinRoom(room: joinRoomSchema, db: Session = Depends(get_db), current_user: 
         notif = None
 
         if username and username:
-            print("Username found while leaving:",username)
             #Add a notification:
             notif = ChatMessages(group_id=member.group_id,
                              sender_id=room.joining_by_uuid,
@@ -198,7 +197,6 @@ def leaveRoom(room: leaveRoomSchema, db: Session = Depends(get_db),current_user:
         record = db.query(GroupMember).filter(GroupMember.is_admin == "admin",GroupMember.user_id == room.target_uuid).first()
         
         if record:
-            print("Record admin: ",record.is_admin)
             return {"adminError":"Admins cannot leave the room. Dissolve the room instead."}
 
         #Get username:
@@ -216,8 +214,7 @@ def leaveRoom(room: leaveRoomSchema, db: Session = Depends(get_db),current_user:
             db.add(notif)
             db.commit()
             db.refresh(notif)
-        else:
-            print("Username found while leaving:",username)
+
         #Delete
         user = db.query(GroupMember).filter(GroupMember.user_id == room.target_uuid, GroupMember.group_id == room.group_id).delete()
 
@@ -292,7 +289,7 @@ def getRoomCode(db: Session = Depends(get_db),current_user: dict = Depends(get_c
 @router.get("/members/{groupcode}")
 def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     try:
-        # 1. Verify the user requesting the list is actually in this group
+        
         user_in_group = db.query(GroupMember).filter(
             GroupMember.group_id == groupcode,
             GroupMember.user_id == current_user['user_id']
@@ -301,9 +298,12 @@ def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user:
         if not user_in_group:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a member of this room.")
 
-        # 2. INLINED QUERY: Join GroupMember, Credentials, and UserProfile to get the full UI data
         members_data = db.query(
             GroupMember.is_admin,
+            GroupMember.can_chat,
+            GroupMember.can_export_history,
+            GroupMember.can_update_calendar,
+            Group.can_see_invite_code,
             Credentials.first_name,
             Credentials.last_name,
             Credentials.email,
@@ -313,11 +313,12 @@ def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user:
             Credentials, GroupMember.user_id == Credentials.unique_user_id
         ).join(
             UserProfile, GroupMember.user_id == UserProfile.unique_user_id
+        ).join(
+            Group, Group.invitecode == GroupMember.group_id
         ).filter(
             GroupMember.group_id == groupcode
         ).all()
         
-        # 3. Construct the response
         member_data = []
         for member in members_data:
             member_data.append({
@@ -325,7 +326,11 @@ def getGroupMembers(groupcode: str, db: Session = Depends(get_db), current_user:
                 "last_name": member.last_name,
                 "email": member.email,
                 "role": member.is_admin,
-                "user_id":member.unique_user_id,
+                "user_id":str(member.unique_user_id),
+                "CanChat":member.can_chat,
+                "CanExportHistory":member.can_export_history,
+                "CanUpdateCalendar":member.can_update_calendar,
+                "RoomCodeVisibility":member.can_see_invite_code,
                 "pfp_path": member.pfp_path
             })
 
@@ -384,7 +389,6 @@ def restrictInvite(groupcode: str,db: Session = Depends(get_db), current_user: d
         db.commit()
         db.refresh(notif)
 
-        print("Restricted: ",Group_setting.can_see_invite_code)
         return {"Restrict":Group_setting.can_see_invite_code}
     except HTTPException:
         raise
@@ -397,7 +401,7 @@ def kickMember(group_id: str, user_id: str, current_user: dict = Depends(get_cur
     
     is_admin = db.query(GroupMember).filter(
         GroupMember.group_id == group_id,
-        GroupMember.user_id == current_user['user_id'],
+        GroupMember.user_id == UUID(current_user['user_id']),
         GroupMember.is_admin == "admin"
     ).first()
     
@@ -411,7 +415,6 @@ def kickMember(group_id: str, user_id: str, current_user: dict = Depends(get_cur
         fullname=kicked_member.first_name+" "
         fullname = fullname + kicked_member.last_name
     
-    # Delete from GroupMember
     db.query(GroupMember).filter(
         GroupMember.group_id == group_id,
         GroupMember.user_id == UUID(user_id)
@@ -440,3 +443,72 @@ def kickMember(group_id: str, user_id: str, current_user: dict = Depends(get_cur
     db.commit()
     db.refresh(notif)
     return {"detail": "Member removed. They can rejoin in 24 hours."}
+
+@router.put("/mute/{group_id}/{user_id}")
+def muteUnmuteMember(
+    group_id: str,
+    user_id: str,
+    can_chat: bool,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)):
+    
+    is_admin = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == UUID(current_user['user_id']),
+        GroupMember.is_admin == "admin"
+    ).first()
+
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can mute members")
+
+    member = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id,
+        GroupMember.user_id == UUID(user_id)
+    ).first()
+
+    current_user_uuid = UUID(current_user['user_id']) if isinstance(current_user['user_id'], str) else current_user['user_id']
+    target_user_uuid = UUID(user_id) if isinstance(user_id, str) else user_id
+    
+    print(f"\n=== MUTE DEBUG ===")
+    print(f"Current user: {current_user_uuid}")
+    print(f"Target user: {target_user_uuid}")
+    print(f"Group: {group_id}")
+    print(f"Target member found: {member}")
+    if member:
+        print(f"  - is_admin: '{member.is_admin}' (type: {type(member.is_admin)})")
+        print(f"  - can_chat: {member.can_chat}")
+    
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    if member.is_admin == "admin":
+        raise HTTPException(status_code=403, detail="Cannot mute admins")
+
+    member.can_chat = not can_chat
+    print("member.can_chat",member.can_chat)
+    db.commit()
+    db.refresh(member)
+
+    action = "unmuted" if can_chat else "muted"
+    print("Action:",action)
+    admin_name = db.query(Credentials).filter(
+        Credentials.unique_user_id == UUID(current_user['user_id'])).first()
+    member_name = db.query(Credentials).filter(
+        Credentials.unique_user_id == UUID(user_id)
+    ).first()
+
+    if not member_name:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    notif = ChatMessages(
+        group_id=group_id,
+        sender_id=UUID(current_user['user_id']),
+        message=f"{admin_name.first_name} {admin_name.last_name} has {action} {member_name.first_name} {member_name.last_name}.",
+        msgtype="system",
+        timestamp=datetime.utcnow()
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+    print("Notification created from /mute")
+    return {"CanChat": member.can_chat, "detail": f"Member {action}"}

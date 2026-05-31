@@ -6,6 +6,16 @@ import { CiShoppingCart } from "react-icons/ci";
 import { useAuth } from "../../context/AuthContext";
 type MessageType = "user" | "purchase" | "notification" | "system";
 
+interface Member {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  pfp_path: string;
+  CanChat: boolean;
+}
+
 interface Message {
   id: string;
   type: MessageType; 
@@ -102,9 +112,6 @@ function renderSystemMessage(msg: Message) {
     </div>
   );
 }
-
-
-
 export default function Room() {
 
   const {isAdmin} = useAuth();
@@ -129,6 +136,33 @@ const CodeVisibility = () => {
     return false;
   }
 }
+
+const IsMuted = () => {
+  try {
+    const userData = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
+    
+    if (!hasRoom() || isAdmin) {
+      return false;  
+    }
+
+    const membersData = localStorage.getItem("groupMembers");
+    if (!membersData) {
+      return false;  
+    }
+
+    const members = JSON.parse(membersData);
+    const currentUser = members.find(
+      (m: any) => String(m.user_id) === String(userData.id)
+    );
+
+    return currentUser ? currentUser.CanChat === false : false;
+  } catch {
+    return false;
+  }
+};
+  const [isMuted, setIsMuted] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isConnected, setIsConnected] = useState(false);
@@ -139,6 +173,40 @@ const CodeVisibility = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
+
+  useEffect(() => {
+  const fetchMembers = async () => {
+    try {
+      const currentRoom = JSON.parse(localStorage.getItem("currentRoom") || "{}");
+      const token = localStorage.getItem("access_token");
+      const safeGroupCode = currentRoom.Groupid || currentRoom.group_id || "";
+
+      if (!safeGroupCode || !token) return;
+
+      const res = await fetch(`${VITE_ROUTE_API_KEY}/groups/members/${safeGroupCode}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      
+      // Store members in localStorage
+      localStorage.setItem("groupMembers", JSON.stringify(data.members || []));
+      setMembers(data.members || []);
+
+      // ← ADD THIS: update isMuted state after members are loaded
+      setIsMuted(IsMuted());
+      
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchMembers();
+  const interval = setInterval(fetchMembers, 5000);
+  return () => clearInterval(interval);
+}, []);
 
   const getHistory = async (roomCodeVal: string, userIdVal: string) => {
     const response = await fetch(`${VITE_ROUTE_API_KEY}/chat/history/${roomCodeVal}`, {
@@ -167,6 +235,7 @@ const CodeVisibility = () => {
         };
       });
       setMessages(formatted);
+      
     } else {
       setMessages([]);
     }
@@ -233,6 +302,8 @@ const CodeVisibility = () => {
   }, [messages]);
 
   const sendMessage = () => {
+
+    if (isMuted) return;
     const text = inputText.trim();
     if (text === "") return;
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
@@ -250,18 +321,18 @@ const CodeVisibility = () => {
   };
 
   // ─── Test button to add different message types (for demo) ───────────────────
-  const addTestMessage = (type: MessageType) => {
-    const testMsg: Message = {
-      id: Date.now().toString(),
-      type,
-      sender_id: "system",
-      sender_name: "System",
-      message: `This is a ${type} message example`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      metadata: type === "purchase" ? { amount: 500, paidBy: "John" } : undefined,
-    };
-    setMessages((prev) => [...prev, testMsg]);
-  };
+  // const addTestMessage = (type: MessageType) => {
+  //   const testMsg: Message = {
+  //     id: Date.now().toString(),
+  //     type,
+  //     sender_id: "system",
+  //     sender_name: "System",
+  //     message: `This is a ${type} message example`,
+  //     timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  //     metadata: type === "purchase" ? { amount: 500, paidBy: "John" } : undefined,
+  //   };
+  //   setMessages((prev) => [...prev, testMsg]);
+  // };
 
   return (
     <>
@@ -348,6 +419,11 @@ const CodeVisibility = () => {
 
         {/* Input */}
         <div style={styles.inputBar}>
+
+          {isMuted && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-center text-sm text-yellow-700 dark:border-yellow-500/20 dark:bg-yellow-500/10 dark:text-yellow-400">
+          🔇 You are muted and cannot send messages.
+        </div>)}
           <div style={styles.inputWrap}>
             <input
               ref={inputRef}
@@ -357,6 +433,7 @@ const CodeVisibility = () => {
               onKeyDown={handleKeyDown}
               placeholder="Type a message…"
               style={styles.input}
+              disabled={IsMuted()}
             />
             <button
               onClick={sendMessage}
@@ -375,11 +452,11 @@ const CodeVisibility = () => {
           <div style={styles.inputHint}>Press Enter to send</div>
 
           {/* Demo buttons — remove later */}
-          <div style={{ display: "flex", gap: "8px", marginTop: "12px", justifyContent: "center" }}>
+          {/* <div style={{ display: "flex", gap: "8px", marginTop: "12px", justifyContent: "center" }}>
             <button onClick={() => addTestMessage("purchase")} style={styles.demoBtn}>+ Purchase</button>
             <button onClick={() => addTestMessage("notification")} style={styles.demoBtn}>+ Notification</button>
             <button onClick={() => addTestMessage("system")} style={styles.demoBtn}>+ System</button>
-          </div>
+          </div> */}
         </div>
 
       </div>

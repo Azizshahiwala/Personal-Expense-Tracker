@@ -3,8 +3,8 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Avatar from "../../components/ui/avatar/Avatar";
 import Button from "../../components/ui/button/Button";
-import Badge from "../../components/ui/badge/Badge";
 import { useAuth } from "../../context/AuthContext";
+import Badge from "../../components/ui/badge/Badge";
 import {
   Table,
   TableBody,
@@ -23,20 +23,34 @@ interface Member {
   can_chat?: boolean;  // ← tracks if muted
 }
 
-interface ConfirmDialog {
-  message: string;
-  action: () => Promise<void>;
-}
-
 export default function Members() {
+
+  const {isAdmin} = useAuth();
+  const hasRoom = () => {
+      try {
+        const roomData = localStorage.getItem('currentRoom');
+        return Boolean(roomData !== null && roomData !== undefined);
+      } catch (error) {
+        return false;
+      }
+    };
+  
+  const IsMuted = () => {
+    
+    try {
+      if (hasRoom() && !isAdmin) {
+        const room = JSON.parse(localStorage.getItem('currentRoom') || '{}');
+        return Boolean(room.CanChat);
+      }
+      return Boolean(true);
+    } catch {
+      return false;
+    }
+  }
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);  // tracks which member action is loading
-  const [confirm, setConfirm] = useState<ConfirmDialog | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   
-  const { isAdmin } = useAuth();
   const VITE_ROUTE_API_KEY = import.meta.env.VITE_ROUTE_API_KEY;
 
   useEffect(() => {
@@ -80,99 +94,6 @@ export default function Members() {
     fetchMembers();
   }, [VITE_ROUTE_API_KEY]);
 
-  // ── Show brief feedback toast ──────────────────────────────────────────
-  const showFeedback = (msg: string) => {
-    setFeedback(msg);
-    setTimeout(() => setFeedback(null), 2500);
-  };
-
-  // ── Mute/Unmute member ────────────────────────────────────────────────
-  const handleToggleMute = (member: Member) => {
-    const newMuteState = !member.can_chat;
-    const action = newMuteState ? "Unmute" : "Mute";
-    const fullName = `${member.first_name} ${member.last_name}`;
-
-    setConfirm({
-      message: `${action} ${fullName}? ${newMuteState ? 'They will be able to chat.' : 'They will not be able to send messages.'}`,
-      action: async () => {
-        setActionLoading(member.user_id || '');
-        try {
-          const token = localStorage.getItem('access_token');
-          const currentRoom = JSON.parse(localStorage.getItem('currentRoom') || '{}');
-          const safeGroupCode = currentRoom.Groupid || currentRoom.group_id || "";
-
-          const response = await fetch(
-            `${VITE_ROUTE_API_KEY}/groups/mute/${safeGroupCode}/${member.user_id}`,
-            {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ can_chat: newMuteState })
-            }
-          );
-
-          if (response.ok) {
-            // Update local state
-            setMembers((prev) =>
-              prev.map((m) =>
-                m.user_id === member.user_id ? { ...m, can_chat: newMuteState } : m
-              )
-            );
-            showFeedback(`${fullName} was ${action.toLowerCase()}d.`);
-          } else {
-            setError(`Failed to ${action.toLowerCase()} member.`);
-          }
-        } catch (err) {
-          console.error(err);
-          setError(`Error ${action.toLowerCase()}ing member.`);
-        } finally {
-          setActionLoading(null);
-          setConfirm(null);
-        }
-      }
-    });
-  };
-
-  // ── Kick member ───────────────────────────────────────────────────────
-  const handleKickMember = (member: Member) => {
-    const fullName = `${member.first_name} ${member.last_name}`;
-
-    setConfirm({
-      message: `Remove ${fullName} from the group? They will be only able to rejoin after 24 hours.`,
-      action: async () => {
-        setActionLoading(member.user_id || '');
-        try {
-          const token = localStorage.getItem('access_token');
-          const currentRoom = JSON.parse(localStorage.getItem('currentRoom') || '{}');
-          const safeGroupCode = currentRoom.Groupid || currentRoom.group_id || "";
-
-          const response = await fetch(
-            `${VITE_ROUTE_API_KEY}/groups/kick/${safeGroupCode}/${member.user_id}`,
-            {
-              method: 'DELETE',
-              headers: { 'Authorization': `Bearer ${token}` }
-            }
-          );
-
-          if (response.ok) {
-            // Remove from local state
-            setMembers((prev) => prev.filter((m) => m.user_id !== member.user_id));
-            showFeedback(`${fullName} was removed from the group.`);
-          } else {
-            setError('Failed to remove member.');
-          }
-        } catch (err) {
-          console.error(err);
-          setError('Error removing member.');
-        } finally {
-          setActionLoading(null);
-          setConfirm(null);
-        }
-      }
-    });
-  };
 
   return (
     <div>
@@ -189,16 +110,9 @@ export default function Members() {
             Group Members
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 sm:text-base">
-            Browse the group member list and manage user access.
+            Browse the group member list.
           </p>
         </div>
-
-        {/* Feedback toast */}
-        {feedback && (
-          <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-green-700 dark:bg-green-500/10 dark:border-green-500/20 dark:text-green-400 text-sm text-center">
-            {feedback}
-          </div>
-        )}
 
         {/* Error */}
         {error && (
@@ -233,9 +147,7 @@ export default function Members() {
                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
                       Status
                     </TableCell>
-                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-center text-theme-xs dark:text-gray-400">
-                      Actions
-                    </TableCell>
+                    
                   </TableRow>
                 </TableHeader>
 
@@ -267,35 +179,14 @@ export default function Members() {
                       </TableCell>
 
                       <TableCell className="px-4 py-3 text-center">
-                        {member.can_chat === false ? (
+                        {member.can_chat === false? (
                           <Badge size="sm" color="warning">Muted</Badge>
                         ) : (
                           <Badge size="sm" color="success">Active</Badge>
                         )}
                       </TableCell>
 
-                      <TableCell className="px-4 py-3 text-center">
-                        {member.role === 'admin' ? (
-                          <span className="text-gray-400 text-xs">—</span>
-                        ) : (
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleToggleMute(member)}
-                              disabled={actionLoading === member.user_id}
-                              className="text-theme-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {actionLoading === member.user_id ? "..." : (member.can_chat === false ? "Unmute" : "Mute")}
-                            </button>
-                            <button
-                              onClick={() => handleKickMember(member)}
-                              disabled={actionLoading === member.user_id}
-                              className="rounded-lg bg-red-50 px-3 py-1.5 text-theme-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {actionLoading === member.user_id ? "..." : "Kick"}
-                            </button>
-                          </div>
-                        )}
-                      </TableCell>
+                      
                     </TableRow>
                   ))}
                 </TableBody>
@@ -312,73 +203,6 @@ export default function Members() {
         )}
       </div>
 
-      {/* Confirm dialog */}
-      {confirm && (
-        <div style={dialogStyles.overlay}>
-          <div style={dialogStyles.box}>
-            <p style={dialogStyles.message}>{confirm.message}</p>
-            <div style={dialogStyles.btnRow}>
-              <button onClick={() => setConfirm(null)} style={dialogStyles.cancelBtn}>
-                Cancel
-              </button>
-              <button onClick={confirm.action} style={dialogStyles.confirmBtn}>
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-
-const dialogStyles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999,
-  },
-  box: {
-    background: "white",
-    borderRadius: "12px",
-    padding: "24px",
-    maxWidth: "360px",
-    width: "90%",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-  },
-  message: {
-    fontSize: "14px",
-    color: "#333",
-    marginBottom: "20px",
-    lineHeight: "1.5",
-    textAlign: "center",
-  },
-  btnRow: {
-    display: "flex",
-    gap: "10px",
-  },
-  cancelBtn: {
-    flex: 1,
-    padding: "10px",
-    background: "transparent",
-    color: "#666",
-    border: "1.5px solid #ddd",
-    borderRadius: "8px",
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-  confirmBtn: {
-    flex: 1,
-    padding: "10px",
-    background: "#dc2626",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "13px",
-    cursor: "pointer",
-  },
-};

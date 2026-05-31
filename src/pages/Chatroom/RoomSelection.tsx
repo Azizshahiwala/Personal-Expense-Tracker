@@ -52,7 +52,7 @@ export default function RoomSelection() {
     setCreateError('');
     try {
       const response = await fetch(`${VITE_ROUTE_API_KEY}/groups/create`, {
-        method: 'GET',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`

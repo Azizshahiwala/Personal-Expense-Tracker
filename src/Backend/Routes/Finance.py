@@ -54,7 +54,6 @@ def getGroupHistory(group_id: str,current_user: dict = Depends(get_current_user)
         "timestamp":      chat.timestamp.isoformat(),
         "amtrecovered": float(chat.amtrecovered),})
 
-        print("History:",results)
         return {"history":results}
     except HTTPException as e:
         print("getGroupHistory",e)
@@ -113,8 +112,6 @@ def getPersonalHistory(target_uuid:str,current_user: dict = Depends(get_current_
         "timestamp":      chat.timestamp.isoformat(),
         "amtrecovered": chat.amtrecovered,})
         
-        print("--------------")
-        print("Data found: ",results)
         return {"history":results,
                 "has_set_budget": budget.has_set_budget,
                 "member_budget": (budget.member_budget or 0.0),
@@ -157,7 +154,6 @@ def setEntry(expEntry: ExpenseEntry, current_user: dict = Depends(get_current_us
             is_solo = True
         else:
             is_solo = False 
-        print("Is solo purchase:",is_solo)
 
         #Create ONE chat message (purchase) 
         purchase_msg = ChatMessages(group_id=curr_group_id.group_id,
@@ -174,7 +170,6 @@ def setEntry(expEntry: ExpenseEntry, current_user: dict = Depends(get_current_us
         batch=[]
 
         if is_solo:
-            print(expEntry.contributors)
             contributor_uuid = current_user["user_id"] 
             contributor_name = username.first_name +" "+username.last_name 
                    
@@ -231,7 +226,6 @@ def setEntry(expEntry: ExpenseEntry, current_user: dict = Depends(get_current_us
         db.commit()
         db.refresh(purchase_msg)
 
-        print("Added entry!")
         return {"message":"Success"}
     except HTTPException as e:
         print("from /setEntry:",e)
@@ -255,7 +249,6 @@ def delEntry(expense_id: str,current_user: dict = Depends(get_current_user), db:
         recovered = 0.0
         original = None
         if bool(this_expense[0].is_solo):
-            print("This purchase is solo.")
             #If this is solo, then recover normally
             recovered = this_expense[0].individual_amt
 
@@ -267,7 +260,6 @@ def delEntry(expense_id: str,current_user: dict = Depends(get_current_user), db:
                 original.spent = original.spent - recovered
             
         else:
-            print("This purchase is contributed.")
             recovered = 0.0
             
             for record in this_expense:
@@ -338,7 +330,6 @@ def setBudget(item: updateBudget,current_user: dict = Depends(get_current_user),
 
             db.commit()
             
-            print("Success: ",member.member_budget)
             return {"has_set_budget": member.has_set_budget, "member_budget": member.member_budget}
         except HTTPException as e:
             print("from /delEntry:",e)
